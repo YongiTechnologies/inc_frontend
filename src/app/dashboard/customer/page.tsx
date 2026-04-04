@@ -1,35 +1,39 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+
 import Navbar from "@/components/common/Navbar";
 import Footer from "@/components/common/Footer";
 import StatsWidget from "@/components/dashboard/StatsWidget";
 import ShipmentCard from "@/components/dashboard/ShipmentCard";
-import { Package, Truck, CheckCircle, Clock, Search, Filter } from "lucide-react";
-import { useState } from "react";
-
-const mockShipments = [
-    {
-        id: "GH-INC-001",
-        vessel: "MSC LENI FY542R",
-        origin: "Guangzhou, China",
-        destination: "Accra, Ghana",
-        status: "IN TRANSIT",
-        eta: "Oct 17, 2025",
-        type: "sea" as const
-    },
-    {
-        id: "GH-INC-002",
-        vessel: "SKY CARGO B747",
-        origin: "Shenzhen, China",
-        destination: "Tema, Ghana",
-        status: "DELIVERED",
-        eta: "Sep 06, 2025",
-        type: "air" as const
-    }
-];
+import { Package, Truck, CheckCircle, Clock, Search, Filter, Power } from "lucide-react";
+import { useState, useEffect } from "react";
+import { getMyShipments } from "@/services/shipments";
 
 export default function CustomerDashboard() {
+    const router = useRouter();
     const [searchQuery, setSearchQuery] = useState("");
+    const [shipments, setShipments] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchShipments = async () => {
+            try {
+                const data = await getMyShipments();
+                // Assumes the API returns an array or an object containing \{ shipments: [] \}
+                setShipments(Array.isArray(data) ? data : (data.shipments || []));
+            } catch (error) {
+                console.error("Failed to fetch shipments:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchShipments();
+    }, []);
+
+    const handleLogout = () => {
+        router.push('/');
+    };
 
     return (
         <div className="bg-slate-50 min-h-screen">
@@ -55,6 +59,9 @@ export default function CustomerDashboard() {
                             </div>
                             <button className="p-3 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-[#039B81] hover:border-[#039B81]/30 transition-all">
                                 <Filter size={20} />
+                            </button>
+                            <button onClick={handleLogout} className="p-3 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl transition-colors shrink-0" title="Logout">
+                                <Power size={20} />
                             </button>
                         </div>
                     </div>
@@ -101,12 +108,22 @@ export default function CustomerDashboard() {
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                            {mockShipments.map((shipment) => (
-                                <ShipmentCard 
-                                    key={shipment.id}
-                                    {...shipment}
-                                />
-                            ))}
+                            {isLoading ? (
+                                <div className="col-span-full py-16 flex justify-center text-slate-400 font-medium tracking-widest text-sm uppercase">
+                                    Loading your shipments...
+                                </div>
+                            ) : shipments.length > 0 ? (
+                                shipments.map((shipment) => (
+                                    <ShipmentCard 
+                                        key={shipment.id}
+                                        {...shipment}
+                                    />
+                                ))
+                            ) : (
+                                <div className="col-span-full py-16 flex justify-center text-slate-400 font-medium tracking-widest text-sm uppercase">
+                                    No active shipments found
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

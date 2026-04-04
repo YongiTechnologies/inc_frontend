@@ -1,33 +1,47 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+
 import Navbar from "@/components/common/Navbar";
 import Footer from "@/components/common/Footer";
 import StatsWidget from "@/components/dashboard/StatsWidget";
 import DataTable from "@/components/dashboard/DataTable";
-import { Package, Truck, CheckCircle, Clock, Search, Filter, Plus, Ship } from "lucide-react";
-import { useState } from "react";
+import CreateShipmentModal from "@/components/dashboard/CreateShipmentModal";
+import UpdateStatusModal from "@/components/dashboard/UpdateStatusModal";
+import { Package, Truck, CheckCircle, Clock, Search, Filter, Plus, Ship, Power } from "lucide-react";
+import { useState, useEffect } from "react";
 import Button from "@/components/common/Button";
-
-const mockShipments = [
-    {
-        id: "GH-INC-001",
-        vessel: "MSC LENI FY542R",
-        customer: "John Doe",
-        status: "IN TRANSIT",
-        eta: "Oct 17, 2025",
-        type: "sea"
-    },
-    {
-        id: "GH-INC-002",
-        vessel: "SKY CARGO B747",
-        customer: "Jane Smith",
-        status: "DELIVERED",
-        eta: "Sep 06, 2025",
-        type: "air"
-    }
-];
+import { getAllShipments } from "@/services/shipments";
 
 export default function EmployeeDashboard() {
+    const router = useRouter();
+    const [shipments, setShipments] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    
+    // Status Modal State
+    const [statusModalShipmentId, setStatusModalShipmentId] = useState<string | null>(null);
+
+    const fetchShipments = async () => {
+        setIsLoading(true);
+        try {
+            const data = await getAllShipments();
+            setShipments(Array.isArray(data) ? data : (data.shipments || []));
+        } catch (error) {
+            console.error("Failed to fetch shipments:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchShipments();
+    }, []);
+
+    const handleLogout = () => {
+        router.push('/');
+    };
+
     const columns = [
         { header: "Shipment ID", accessor: "id" },
         { header: "Vessel/Flight", accessor: "vessel" },
@@ -48,7 +62,10 @@ export default function EmployeeDashboard() {
             header: "Actions",
             accessor: "id",
             render: (item: any) => (
-                <button className="text-[#039B81] font-bold text-[10px] uppercase tracking-widest hover:underline">
+                <button 
+                    onClick={() => setStatusModalShipmentId(item.id)}
+                    className="text-[#039B81] font-bold text-[10px] uppercase tracking-widest hover:underline"
+                >
                     Edit Status
                 </button>
             )
@@ -66,10 +83,15 @@ export default function EmployeeDashboard() {
                             <h1 className="text-4xl font-black text-slate-800 tracking-tight mb-2">Employee Portal</h1>
                             <p className="text-slate-500 font-medium">Manage logistics operations and updates.</p>
                         </div>
-                        <Button className="w-full md:w-auto py-3 text-xs font-black uppercase tracking-[0.2em]">
-                            <Plus size={18} className="mr-2" />
-                            New Shipment
-                        </Button>
+                        <div className="flex items-center gap-3">
+                            <Button onClick={() => setIsCreateModalOpen(true)} className="w-full md:w-auto py-3 text-xs font-black uppercase tracking-[0.2em]">
+                                <Plus size={18} className="mr-2" />
+                                New Shipment
+                            </Button>
+                            <button onClick={handleLogout} className="p-3 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl transition-colors shrink-0" title="Logout">
+                                <Power size={20} />
+                            </button>
+                        </div>
                     </div>
 
                     {/* Stats Grid */}
@@ -103,14 +125,37 @@ export default function EmployeeDashboard() {
                             </h2>
                         </div>
 
-                        <DataTable 
-                            columns={columns}
-                            data={mockShipments}
-                        />
+                        {isLoading ? (
+                            <div className="bg-white rounded-xl border border-slate-200 py-16 flex justify-center text-slate-400 font-medium tracking-widest text-sm uppercase">
+                                Loading logistics database...
+                            </div>
+                        ) : shipments.length > 0 ? (
+                            <DataTable 
+                                columns={columns}
+                                data={shipments}
+                            />
+                        ) : (
+                            <div className="bg-white rounded-xl border border-slate-200 py-16 flex justify-center text-slate-400 font-medium tracking-widest text-sm uppercase">
+                                No shipments found in database.
+                            </div>
+                        )}
                     </div>
                 </div>
             </main>
             <Footer />
+
+            <CreateShipmentModal 
+                isOpen={isCreateModalOpen} 
+                onClose={() => setIsCreateModalOpen(false)} 
+                onSuccess={fetchShipments} 
+            />
+
+            <UpdateStatusModal 
+                isOpen={!!statusModalShipmentId} 
+                onClose={() => setStatusModalShipmentId(null)} 
+                onSuccess={fetchShipments} 
+                shipmentId={statusModalShipmentId || ""} 
+            />
         </div>
     );
 }

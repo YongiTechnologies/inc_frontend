@@ -2,8 +2,10 @@
 
 import Button from "@/components/common/Button";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Mail, Lock, ArrowLeft, User } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { useRouter } from "next/navigation";
 import AuthSlider from "@/components/common/AuthSlider";
 import Image from "next/image";
 
@@ -13,11 +15,35 @@ export default function RegisterPage() {
     const [confirmPassword, setConfirmPassword] = useState("");
     const [isLoading, setIsLoading] = useState(false);
 
-    const handleRegister = (e: React.FormEvent) => {
+    const { register, user, isAuthenticated } = useAuth();
+    const router = useRouter();
+
+    useEffect(() => {
+        if (isAuthenticated && user) {
+            const role = user.role?.toLowerCase();
+            if (role === 'admin') router.push('/dashboard/admin');
+            else if (role === 'employee') router.push('/dashboard/employee');
+            else router.push('/dashboard/customer');
+        }
+    }, [isAuthenticated, user, router]);
+
+    const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        if (password !== confirmPassword) {
+            alert("Passwords do not match!");
+            return;
+        }
+
         setIsLoading(true);
-        // Add registration logic here
-        setTimeout(() => setIsLoading(false), 2000);
+        try {
+            await register({ email, password });
+        } catch (error) {
+            console.error("Registration failed:", error);
+            alert("An error occurred during registration. Please try again.");
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -86,7 +112,7 @@ export default function RegisterPage() {
                             </div>
                         </div>
 
-                        <Button type="submit" isLoading={isLoading} className="w-full py-4 text-xs font-black uppercase tracking-[0.2em] shadow-lg shadow-[#039B81]/20 mt-4">
+                        <Button type="submit" isLoading={isLoading} className="w-full py-4 text-xs font-black uppercase tracking-[0.2em] shadow-sm shadow-[#039B81]/20 mt-4">
                             Register Now
                         </Button>
                     </form>

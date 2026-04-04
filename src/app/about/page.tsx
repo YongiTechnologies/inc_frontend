@@ -54,7 +54,7 @@ export default function AboutPage() {
                             </div>
 
                             {/* Right: Image */}
-                            <div className="relative h-[400px] lg:h-[500px] rounded-3xl overflow-hidden shadow-2xl">
+                            <div className="relative h-[400px] lg:h-[500px] rounded-3xl overflow-hidden shadow-sm">
                                 <Image
                                     src="/assets/inc.JPG"
                                     alt="Who We Are"

@@ -1,6 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
+import api, { setAccessToken } from "@/services/api";
+import { useRouter } from "next/navigation";
 
 interface User {
     id: string;
@@ -11,9 +13,9 @@ interface User {
 
 interface AuthContextType {
     user: User | null;
-    token: string | null;
-    login: (token: string, user: User) => void;
-    logout: () => void;
+    login: (credentials: any) => Promise<void>;
+    register: (userData: any) => Promise<void>;
+    logout: () => Promise<void>;
     isAuthenticated: boolean;
     isLoading: boolean;
 }
@@ -22,48 +24,92 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
-    const [token, setToken] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const router = useRouter();
 
-    useEffect(() => {
-        // Load auth state from localStorage or cookies on mount
-        const storedToken = localStorage.getItem("token");
-        const storedUser = localStorage.getItem("user");
-        
-        if (storedToken && storedUser) {
-            try {
-                setToken(storedToken);
-                setUser(JSON.parse(storedUser));
-            } catch (error) {
-                console.error("Failed to parse stored user", error);
-                localStorage.removeItem("token");
-                localStorage.removeItem("user");
-            }
+    const fetchUser = async () => {
+        try {
+            const { data } = await api.get("/api/auth/me");
+            // API might return standard data \{ user: User \} or just \{ id, name, ... \}
+            setUser(data.user || data);
+        } catch (error) {
+            // It's expected to fail if no valid refresh cookie exists. Just stay logged out silently.
+            setUser(null);
+            setAccessToken(null);
+        } finally {
+            setIsLoading(false);
         }
-        setIsLoading(false);
-    }, []);
-
-    const login = (newToken: string, newUser: User) => {
-        setToken(newToken);
-        setUser(newUser);
-        localStorage.setItem("token", newToken);
-        localStorage.setItem("user", JSON.stringify(newUser));
     };
 
-    const logout = () => {
-        setToken(null);
-        setUser(null);
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
+    useEffect(() => {
+        // Attempt to fetch user profile on load. 
+        // If a refresh token cookie is present, the axios interceptor will silently 
+        // fetch an access token and this request will succeed, logging the user in.
+        fetchUser();
+    }, []);
+
+    const login = async (credentials: any) => {
+        try {
+            setIsLoading(true);
+            const { data } = await api.post("/api/auth/login", credentials);
+            const token = data.access_token || data.accessToken || data.token;
+            
+            if (token) {
+                setAccessToken(token);
+            }
+            
+            // Now fetch their profile data to populate user state
+            await fetchUser();
+        } catch (error) {
+            console.error("Login failed:", error);
+            setIsLoading(false);
+            throw error;
+        }
+    };
+
+    const register = async (userData: any) => {
+        try {
+            setIsLoading(true);
+            await api.post("/api/auth/register", userData);
+            
+            // Follow immediately by logging in if password is provided
+            if (userData.password) {
+                await login({
+                    email: userData.email,
+                    password: userData.password
+                });
+            } else {
+                setIsLoading(false);
+            }
+        } catch (error) {
+            console.error("Registration failed:", error);
+            setIsLoading(false);
+            throw error;
+        }
+    };
+
+    const logout = async () => {
+        try {
+            setIsLoading(true);
+            // Hit the logout endpoint to instruct the backend to clear the httpOnly refresh cookie
+            await api.post("/api/auth/logout");
+        } catch (error) {
+            console.error("Logout request failed, proceeding to wipe local state:", error);
+        } finally {
+            setUser(null);
+            setAccessToken(null);
+            setIsLoading(false);
+            router.push("/");
+        }
     };
 
     return (
         <AuthContext.Provider value={{ 
             user, 
-            token, 
-            login, 
+            login,
+            register,
             logout, 
-            isAuthenticated: !!token,
+            isAuthenticated: !!user,
             isLoading 
         }}>
             {children}
