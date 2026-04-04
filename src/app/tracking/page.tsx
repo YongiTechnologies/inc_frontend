@@ -4,6 +4,7 @@ import Navbar from "@/components/common/Navbar";
 import Footer from "@/components/common/Footer";
 import { Package, Search, Truck, CheckCircle, Clock, MapPin } from "lucide-react";
 import { useState } from "react";
+import { getPublicTracking } from "@/services/shipments";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
@@ -13,74 +14,62 @@ function TrackingContent() {
     const [trackingNumber, setTrackingNumber] = useState(initialQuery);
     const [isSearching, setIsSearching] = useState(false);
     const [result, setResult] = useState<null | "found" | "not-found">(initialQuery ? "found" : null);
+    const [trackingData, setTrackingData] = useState<any>(null);
 
-    const handleTrack = (e: React.FormEvent) => {
+    const handleTrack = async (e: React.FormEvent) => {
         e.preventDefault();
         if (trackingNumber.trim()) {
             setIsSearching(true);
-            // Simulate API call
-            setTimeout(() => {
+            try {
+                const data = await getPublicTracking(trackingNumber);
+                setTrackingData(data.shipment || data);
+                setResult("found");
+            } catch (error) {
+                console.error("Tracking API Error", error);
+                setTrackingData(null);
+                setResult("not-found");
+            } finally {
                 setIsSearching(false);
-                setResult(trackingNumber.toLowerCase().includes("inc") ? "found" : "not-found");
-            }, 1500);
+            }
         }
     };
 
-    // Mock tracking data
-    const trackingData = {
-        number: trackingNumber,
-        status: "In Transit",
-        origin: "Guangzhou, China",
-        destination: "Accra, Ghana",
-        estimatedDelivery: "January 5, 2025",
-        weight: "15.5 kg",
-        timeline: [
-            { status: "Order Placed", date: "Dec 20, 2024", location: "Online", completed: true },
-            { status: "Picked Up", date: "Dec 21, 2024", location: "Guangzhou, China", completed: true },
-            { status: "Customs Clearance", date: "Dec 23, 2024", location: "Guangzhou Port", completed: true },
-            { status: "Departed Origin", date: "Dec 24, 2024", location: "Guangzhou Port", completed: true },
-            { status: "In Transit", date: "Dec 28, 2024", location: "At Sea", completed: false, current: true },
-            { status: "Arrived at Port", date: "Est. Jan 3, 2025", location: "Tema Port, Ghana", completed: false },
-            { status: "Delivered", date: "Est. Jan 5, 2025", location: "Accra, Ghana", completed: false },
-        ],
-    };
-
     return (
-        <main>
+        <main className="bg-slate-50 min-h-screen">
             {/* Hero Section */}
-            <section className="bg-gradient-to-br from-[#1d4ed8] to-[#1e40af] py-20">
-                <div className="container mx-auto px-4 mt-20">
+            <section className="bg-white pt-32 pb-20 border-b border-slate-100">
+                <div className="container mx-auto px-4 mt-10">
                     <div className="max-w-2xl mx-auto text-center">
-                        <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
+                        <h1 className="text-4xl md:text-5xl font-black text-slate-900 mb-4 tracking-tight">
                             Track Your Shipment
                         </h1>
-                        <p className="text-xl text-blue-100 mb-8">
+                        <p className="text-lg text-slate-500 font-medium mb-12">
                             Enter your tracking number to get real-time updates on your package
                         </p>
 
                         {/* Tracking Form */}
-                        <form onSubmit={handleTrack} className="bg-white rounded-2xl p-2 flex flex-col sm:flex-row gap-2 shadow-xl">
+                        <form onSubmit={handleTrack} className="bg-white rounded-2xl p-2 flex flex-col sm:flex-row gap-2 shadow-2xl shadow-slate-200 border border-slate-100">
                             <div className="relative flex-grow">
-                                <Package className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                                <Package className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
                                 <input
                                     type="text"
                                     placeholder="Enter tracking number (e.g., INC123456)"
                                     value={trackingNumber}
                                     onChange={(e) => setTrackingNumber(e.target.value)}
-                                    className="w-full pl-12 pr-4 py-4 rounded-xl bg-gray-100 text-gray-800 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1d4ed8]"
+                                    className="w-full pl-14 pr-4 py-4 rounded-xl bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#039B81]/20 focus:bg-white focus:border-[#039B81]/30 transition-all font-medium text-sm"
                                 />
                             </div>
                             <button
                                 type="submit"
                                 disabled={isSearching}
-                                className="flex items-center justify-center gap-2 px-8 py-4 bg-[#FC6100] hover:bg-[#E05500] disabled:bg-gray-400 text-white font-semibold rounded-xl transition-colors"
+                                className="flex items-center justify-center gap-2 px-8 py-4 bg-[#039B81] hover:bg-[#027a65] disabled:bg-slate-300 disabled:shadow-none text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-[#039B81]/20 shrink-0"
                             >
                                 {isSearching ? (
                                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                 ) : (
-                                    <Search size={20} />
+                                    <Search size={18} />
                                 )}
-                                <span>{isSearching ? "Searching..." : "Track"}</span>
+                                <span>{isSearching ? "Searching..." : "Track Item"}</span>
                             </button>
                         </form>
                     </div>
@@ -100,60 +89,60 @@ function TrackingContent() {
 
                     {result === "not-found" && (
                         <div className="max-w-2xl mx-auto text-center py-12">
-                            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
                                 <Package className="text-red-500" size={32} />
                             </div>
-                            <h2 className="text-xl font-semibold text-gray-800 mb-2">Tracking Number Not Found</h2>
-                            <p className="text-gray-600 mb-4">
-                                We couldn't find a shipment with the tracking number "{trackingNumber}".
+                            <h2 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">Tracking Number Not Found</h2>
+                            <p className="text-slate-500 font-medium mb-6">
+                                We couldn't find a shipment with the tracking number <span className="font-bold">"{trackingNumber}"</span>.
                                 Please check the number and try again.
                             </p>
-                            <p className="text-sm text-gray-500">
-                                If you believe this is an error, please <a href="/contact" className="text-[#1d4ed8] hover:underline">contact us</a>.
+                            <p className="text-sm text-slate-400 font-medium">
+                                If you believe this is an error, please <a href="/contact" className="text-[#039B81] hover:underline font-bold uppercase tracking-widest text-[10px]">Contact Support</a>.
                             </p>
                         </div>
                     )}
 
-                    {result === "found" && (
+                    {result === "found" && trackingData && (
                         <div className="max-w-4xl mx-auto">
                             {/* Status Overview */}
-                            <div className="bg-white rounded-2xl p-6 shadow-sm mb-8">
-                                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+                            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 mb-8">
+                                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
                                     <div>
-                                        <p className="text-sm text-gray-500">Tracking Number</p>
-                                        <p className="text-xl font-bold text-gray-800">{trackingData.number || "INC" + Math.random().toString().slice(2, 8)}</p>
+                                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Tracking Number</p>
+                                        <p className="text-2xl font-black text-slate-800 tracking-tight">{trackingData.number || "INC" + Math.random().toString().slice(2, 8)}</p>
                                     </div>
-                                    <div className="flex items-center gap-2 px-4 py-2 bg-[#039B81]/10 rounded-full">
+                                    <div className="flex items-center gap-2 px-4 py-2 bg-[#039B81]/10 rounded-xl justify-center">
                                         <div className="w-2 h-2 bg-[#039B81] rounded-full animate-pulse" />
-                                        <span className="font-semibold text-[#039B81]">{trackingData.status}</span>
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-[#039B81]">{trackingData.status}</span>
                                     </div>
                                 </div>
 
                                 <div className="grid md:grid-cols-4 gap-4">
-                                    <div className="bg-gray-50 rounded-xl p-4">
-                                        <p className="text-sm text-gray-500 mb-1">Origin</p>
-                                        <p className="font-medium text-gray-800">{trackingData.origin}</p>
+                                    <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Origin</p>
+                                        <p className="font-semibold text-sm text-slate-800">{trackingData.origin}</p>
                                     </div>
-                                    <div className="bg-gray-50 rounded-xl p-4">
-                                        <p className="text-sm text-gray-500 mb-1">Destination</p>
-                                        <p className="font-medium text-gray-800">{trackingData.destination}</p>
+                                    <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Destination</p>
+                                        <p className="font-semibold text-sm text-slate-800">{trackingData.destination}</p>
                                     </div>
-                                    <div className="bg-gray-50 rounded-xl p-4">
-                                        <p className="text-sm text-gray-500 mb-1">Est. Delivery</p>
-                                        <p className="font-medium text-gray-800">{trackingData.estimatedDelivery}</p>
+                                    <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Est. Delivery</p>
+                                        <p className="font-semibold text-sm text-slate-800">{trackingData.estimatedDelivery}</p>
                                     </div>
-                                    <div className="bg-gray-50 rounded-xl p-4">
-                                        <p className="text-sm text-gray-500 mb-1">Weight</p>
-                                        <p className="font-medium text-gray-800">{trackingData.weight}</p>
+                                    <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Weight</p>
+                                        <p className="font-semibold text-sm text-slate-800">{trackingData.weight}</p>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Timeline */}
-                            <div className="bg-white rounded-2xl p-6 shadow-sm">
-                                <h3 className="text-lg font-semibold text-gray-800 mb-6">Shipment Timeline</h3>
+                            <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
+                                <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-8">Shipment Timeline</h3>
                                 <div className="space-y-0">
-                                    {trackingData.timeline.map((event, index) => (
+                                    {trackingData.timeline?.map((event: any, index: number) => (
                                         <div key={index} className="flex gap-4">
                                             <div className="flex flex-col items-center">
                                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${event.completed
@@ -167,20 +156,20 @@ function TrackingContent() {
                                                     ) : event.current ? (
                                                         <Truck className="text-white" size={16} />
                                                     ) : (
-                                                        <Clock className="text-gray-400" size={16} />
+                                                        <Clock className="text-slate-400" size={16} />
                                                     )}
                                                 </div>
                                                 {index < trackingData.timeline.length - 1 && (
-                                                    <div className={`w-0.5 h-12 ${event.completed ? "bg-[#10b981]" : "bg-gray-200"
+                                                    <div className={`w-0.5 h-12 ${event.completed ? "bg-[#10b981]" : "bg-slate-200"
                                                         }`} />
                                                 )}
                                             </div>
                                             <div className="pb-8">
-                                                <p className={`font-medium ${event.current ? "text-[#039B81]" : event.completed ? "text-gray-800" : "text-gray-400"}`}>
+                                                <p className={`font-black text-sm uppercase tracking-wide ${event.current ? "text-[#039B81]" : event.completed ? "text-slate-800" : "text-slate-400"}`}>
                                                     {event.status}
                                                 </p>
-                                                <p className="text-sm text-gray-500">{event.date}</p>
-                                                <div className="flex items-center gap-1 text-sm text-gray-400 mt-1">
+                                                <p className="text-xs text-slate-500 font-medium font-mono mt-0.5">{event.date}</p>
+                                                <div className="flex items-center gap-1 text-xs text-slate-400 font-medium mt-1">
                                                     <MapPin size={12} />
                                                     <span>{event.location}</span>
                                                 </div>

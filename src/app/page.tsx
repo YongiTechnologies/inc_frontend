@@ -5,6 +5,7 @@ import ServicesGrid from "@/components/home/ServicesGrid";
 import StatsSection from "@/components/home/StatsSection";
 import WhyChooseUs from "@/components/home/WhyChooseUs";
 import CTASection from "@/components/home/CTASection";
+import FAQSection from "@/components/home/FAQSection";
 
 export default function Home() {
   return (
@@ -16,6 +17,7 @@ export default function Home() {
         <WhyChooseUs />
         <StatsSection />
         <CTASection />
+        <FAQSection />
       </main>
       <Footer />
     </>

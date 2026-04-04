@@ -1,11 +1,15 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+
 import Navbar from "@/components/common/Navbar";
 import Footer from "@/components/common/Footer";
 import StatsWidget from "@/components/dashboard/StatsWidget";
 import DataTable from "@/components/dashboard/DataTable";
-import { Users, Shield, TrendingUp, DollarSign, Plus, UserPlus, Settings } from "lucide-react";
+import { Users, Shield, TrendingUp, DollarSign, Plus, UserPlus, Settings, Power } from "lucide-react";
 import Button from "@/components/common/Button";
+import { getAdminStats } from "@/services/shipments";
 
 const mockUsers = [
     {
@@ -32,6 +36,25 @@ const mockUsers = [
 ];
 
 export default function AdminDashboard() {
+    const router = useRouter();
+    const [stats, setStats] = useState<any>(null);
+
+    useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                const data = await getAdminStats();
+                setStats(data.stats || data);
+            } catch (error) {
+                console.error("Failed to fetch admin stats:", error);
+            }
+        };
+        fetchStats();
+    }, []);
+
+    const handleLogout = () => {
+        router.push('/');
+    };
+
     const columns = [
         { header: "User ID", accessor: "id" },
         { header: "Full Name", accessor: "name" },
@@ -82,6 +105,9 @@ export default function AdminDashboard() {
                                 <UserPlus size={18} className="mr-2" />
                                 New User
                             </Button>
+                            <button onClick={handleLogout} className="p-3 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl transition-colors shrink-0" title="Logout">
+                                <Power size={20} />
+                            </button>
                         </div>
                     </div>
 
@@ -89,21 +115,21 @@ export default function AdminDashboard() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
                         <StatsWidget 
                             title="Total Users" 
-                            value="1,280" 
+                            value={stats ? (stats.totalUsers || stats.users || "0") : "..."} 
                             icon={Users} 
                             trend={{ value: 12, isPositive: true }}
                             color="indigo"
                         />
                         <StatsWidget 
                             title="Total Revenue" 
-                            value="$245K" 
+                            value={stats ? (stats.totalRevenue || stats.revenue || "$0") : "..."} 
                             icon={DollarSign} 
                             trend={{ value: 5, isPositive: true }}
                             color="emerald"
                         />
                         <StatsWidget 
                             title="Active Logistics" 
-                            value="84" 
+                            value={stats ? (stats.activeShipments || stats.activeLogistics || "0") : "..."} 
                             icon={TrendingUp} 
                             color="amber"
                         />

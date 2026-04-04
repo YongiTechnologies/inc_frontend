@@ -43,7 +43,7 @@ export default function HeroSection() {
 
                     {/* Tracking Form */}
                     <form onSubmit={handleTrack} className="max-w-2xl mx-auto mb-16 relative z-20">
-                        <div className="bg-white border border-teal-100 p-2 rounded-lg shadow-lg flex flex-col sm:flex-row gap-2">
+                        <div className="bg-white border border-teal-100 p-2 rounded-lg shadow-sm flex flex-col sm:flex-row gap-2">
                             <div className="relative flex-grow">
                                 <Package className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                                 <input
@@ -65,7 +65,7 @@ export default function HeroSection() {
                     </form>
 
                     {/* Image Slider */}
-                    <div className="relative w-full aspect-[16/9] md:aspect-[21/9] rounded-3xl overflow-hidden shadow-2xl">
+                    <div className="relative w-full aspect-[16/9] md:aspect-[21/9] rounded-3xl overflow-hidden shadow-sm">
                         {sliderImages.map((src, index) => (
                             <div
                                 key={src}

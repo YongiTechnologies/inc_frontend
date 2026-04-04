@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Ubuntu } from "next/font/google";
+import { AuthProvider } from "@/context/AuthContext";
 import "./globals.css";
 
 const ubuntu = Ubuntu({
@@ -22,7 +23,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${ubuntu.variable} ${ubuntu.className} antialiased`} suppressHydrationWarning={true}>
-        {children}
+        <AuthProvider>
+            {children}
+        </AuthProvider>
       </body>
     </html>
   );
