@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Mail, Lock, ArrowLeft } from "lucide-react";
 import AuthSlider from "@/components/common/AuthSlider";
+import Image from "next/image";
 
 export default function LoginPage() {
     const [email, setEmail] = useState("");
@@ -94,6 +95,17 @@ export default function LoginPage() {
             {/* Right Column: Dynamic Slider Section (Stationed) */}
             <div className="hidden md:block md:w-1/2 relative bg-slate-900 overflow-hidden md:h-full">
                 <AuthSlider />
+                
+                {/* Brand Logo Overlay */}
+                <div className="absolute top-8 right-8 z-20 opacity-50">
+                    <Image 
+                        src="/assets/inc_logo.png" 
+                        alt="I&C Logo" 
+                        width={180} 
+                        height={60} 
+                        className="object-contain"
+                    />
+                </div>
             </div>
         </main>
     );

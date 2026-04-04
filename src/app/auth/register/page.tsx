@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Mail, Lock, ArrowLeft, User } from "lucide-react";
 import AuthSlider from "@/components/common/AuthSlider";
+import Image from "next/image";
 
 export default function RegisterPage() {
     const [email, setEmail] = useState("");
@@ -36,7 +37,7 @@ export default function RegisterPage() {
                 <div className="flex-grow flex flex-col justify-center max-w-md w-full mx-auto">
                     <div className="mb-10 text-center text-gray-800">
                         <h1 className="text-2xl font-black text-gray-900 mb-3 tracking-tight">Create Account</h1>
-                        <p className="text-gray-500 text-sm">Join I&C Shipping & Logistics. Start managing your shipments today.</p>
+                        <p className="text-gray-500 text-sm">Join I&C Shipping & Logistics by creating an account.</p>
                     </div>
 
                     <form onSubmit={handleRegister} className="space-y-4">
@@ -105,6 +106,17 @@ export default function RegisterPage() {
             {/* Right Column: Dynamic Slider Section (Stationed) */}
             <div className="hidden md:block md:w-1/2 relative bg-slate-900 overflow-hidden md:h-full">
                 <AuthSlider />
+                
+                {/* Brand Logo Overlay */}
+                <div className="absolute top-8 right-8 z-20 opacity-50">
+                    <Image 
+                        src="/assets/inc_logo.png" 
+                        alt="I&C Logo" 
+                        width={180} 
+                        height={60} 
+                        className="object-contain"
+                    />
+                </div>
             </div>
         </main>
     );
