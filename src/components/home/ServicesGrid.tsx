@@ -47,7 +47,7 @@ export default function ServicesGrid() {
                 {/* Section Header */}
                 <div className="text-center mb-14">
                     <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-                        Our <span className="text-[#039B81]">Services</span>
+                        Our Services
                     </h2>
                     <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
                         Comprehensive logistics solutions tailored to meet your shipping needs

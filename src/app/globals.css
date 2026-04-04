@@ -86,11 +86,7 @@ body {
 }
 
 .animate-ticker {
-  animation: ticker 30s linear infinite;
-}
-
-.animate-ticker:hover {
-  animation-play-state: paused;
+  animation: ticker 60s linear infinite;
 }
 
 /* Hide scrollbar for Chrome, Safari and Opera */

@@ -36,7 +36,7 @@ export default function HeroSection() {
             <div className="container mx-auto px-4 py-20">
                 <div className="max-w-5xl mx-auto text-center">
                     {/* Heading */}
-                    <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-black mb-16 leading-tight">
+                    <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-black mb-16 leading-tight">
                         Your Trusted Partner for
                         <span className="text-[#039B81] block mt-2">Global Logistics</span>
                     </h1>
