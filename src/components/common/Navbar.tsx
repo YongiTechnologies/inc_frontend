@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Menu, X, Phone, Mail, MapPin } from "lucide-react";
 
 const navLinks = [
@@ -15,11 +15,25 @@ const navLinks = [
 
 export default function Header() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [scrolled, setScrolled] = useState(false);
+
+    useEffect(() => {
+        const handleScroll = () => {
+            if (window.scrollY > 20) {
+                setScrolled(true);
+            } else {
+                setScrolled(false);
+            }
+        };
+
+        window.addEventListener("scroll", handleScroll);
+        return () => window.removeEventListener("scroll", handleScroll);
+    }, []);
 
     return (
-        <header className="fixed top-0 z-50 w-full">
+        <header className="fixed top-0 z-50 w-full transition-all duration-300">
             {/* Top Ticker Bar */}
-            <div className="bg-[#000322] text-white py-2 text-sm overflow-hidden">
+            <div className={`bg-[#000322] text-white text-sm transition-all duration-150 overflow-hidden ${scrolled ? 'max-h-0 py-0 opacity-0' : 'max-h-12 py-2 opacity-100'}`}>
                 <div className="container mx-auto px-4 flex justify-between items-center">
                     <div className="flex items-center gap-6">
                         <div className="flex items-center gap-2">
@@ -39,7 +53,7 @@ export default function Header() {
             </div>
 
             {/* Main Navigation */}
-            <nav className="bg-transparent backdrop-blur-md">
+            <nav className={`transition-all duration-300 border-1 border-white ${scrolled ? 'bg-white/95 backdrop-blur-md ' : 'bg-transparent backdrop-blur-md'}`}>
                 <div className="container mx-auto px-4">
                     <div className="flex items-center justify-between h-16 lg:h-20">
                         {/* Logo */}
@@ -60,7 +74,7 @@ export default function Header() {
                                 <Link
                                     key={link.name}
                                     href={link.href}
-                                    className="text-[#000322] hover:text-[#027a65] font-medium transition-colors"
+                                    className="text-[#000322] hover:text-[#027a65]  transition-colors"
                                 >
                                     {link.name}
                                 </Link>
@@ -70,14 +84,14 @@ export default function Header() {
                         {/* CTA Buttons */}
                         <div className="hidden lg:flex items-center gap-4">
                             <Link
-                                href="/container-loadings"
-                                className="px-5 py-1.5 bg-[#039B81] border-1 border-[#039B81] text-white rounded-lg font-medium hover:bg-[#027a65] hover:text-white transition-colors"
+                                href="/auth/login"
+                                className="px-5 py-1.5 rounded-lg font-medium transition-colors border-1 border-[#039B81] text-[#039B81] hover:bg-[#039B81] hover:text-white"
                             >
-                                Container Loadings
+                                Login
                             </Link>
                             <Link
                                 href="/contact"
-                                className="px-3 py-1.5 border-1 border-[#039B81] text-[#039B81] rounded-lg font-medium hover:bg-[#039B81] hover:text-white transition-colors"
+                                className="px-3 py-1.5 border-1 border-[#039B81] bg-[#039B81] text-white hover:bg-white hover:text-[#027a65] rounded-lg font-medium transition-colors"
                             >
                                 Get Quote
                             </Link>
@@ -85,7 +99,7 @@ export default function Header() {
 
                         <button
                             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                            className="lg:hidden p-2 text-white"
+                            className="lg:hidden p-2 text-[#000322]"
                             aria-label="Toggle menu"
                         >
                             {mobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
@@ -108,11 +122,11 @@ export default function Header() {
                                 ))}
                                 <div className="flex flex-col gap-2 mt-4 px-4">
                                     <Link
-                                        href="/container-loadings"
+                                        href="/auth/login"
                                         className="w-full text-center px-5 py-3 bg-[#FC6100] text-white rounded-lg font-medium"
                                         onClick={() => setMobileMenuOpen(false)}
                                     >
-                                        Container Loadings
+                                        Login
                                     </Link>
                                     <Link
                                         href="/contact"

@@ -1,5 +1,5 @@
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
+import Navbar from "@/components/common/Navbar";
+import Footer from "@/components/common/Footer";
 import Link from "next/link";
 import Image from "next/image";
 import { Plane, Ship, FileCheck, ShoppingBag, Warehouse, Truck, ArrowRight, CheckCircle } from "lucide-react";
@@ -112,7 +112,7 @@ const services = [
 export default function ServicesPage() {
     return (
         <>
-            <Header />
+            <Navbar />
             <main>
                 {/* Hero Section */}
                 <section className="bg-gradient-to-br from-[#1d4ed8] to-[#1e40af] py-20">

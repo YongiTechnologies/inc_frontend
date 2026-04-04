@@ -1,7 +1,7 @@
 "use client";
 
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
+import Navbar from "@/components/common/Navbar";
+import Footer from "@/components/common/Footer";
 import { Copy, AlertTriangle, Phone, MapPin } from "lucide-react";
 import { useState } from "react";
 
@@ -37,7 +37,7 @@ export default function AddressPage() {
 
     return (
         <>
-            <Header />
+            <Navbar />
             <main className="bg-gray-50 pb-20">
                 {/* Hero / Warning Section */}
                 <section className="pt-32 pb-10 bg-white shadow-sm">

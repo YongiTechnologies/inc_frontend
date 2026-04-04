@@ -1,7 +1,7 @@
 "use client";
 
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
+import Navbar from "@/components/common/Navbar";
+import Footer from "@/components/common/Footer";
 import { Target, Eye, Users, Award, Globe, Ship, Plane } from "lucide-react";
 import Image from "next/image";
 
@@ -20,7 +20,7 @@ const capabilities = [
 export default function AboutPage() {
     return (
         <>
-            <Header />
+            <Navbar />
             <main className="bg-white">
                 {/* Hero / Who Are We */}
                 <section className="pt-32 pb-20">

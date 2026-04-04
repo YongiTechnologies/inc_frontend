@@ -1,7 +1,7 @@
 "use client";
 
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
+import Navbar from "@/components/common/Navbar";
+import Footer from "@/components/common/Footer";
 import { Phone, Mail, MapPin, Clock, Send } from "lucide-react";
 import { useState } from "react";
 
@@ -54,24 +54,24 @@ export default function ContactPage() {
 
     return (
         <>
-            <Header />
+            <Navbar />
             <main>
                 {/* Hero Section */}
-                <section className="bg-gradient-to-br from-[#1d4ed8] to-[#1e40af] py-20">
-                    <div className="container mx-auto px-4 text-center mt-20">
-                        <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
+                <section className="pt-32 pb-10 bg-white shadow-sm">
+                    <div className="container mx-auto px-4 text-center">
+                        <h1 className="text-3xl md:text-4xl font-bold text-black mb-4">
                             Contact Us
                         </h1>
-                        <p className="text-xl text-blue-100 max-w-2xl mx-auto">
+                        <p className="text-xl text-gray-600 max-w-2xl mx-auto">
                             Have questions? We'd love to hear from you. Get in touch with our team.
                         </p>
                     </div>
                 </section>
 
                 {/* Contact Info Cards */}
-                <section className="py-16 bg-white">
+                <section className="py-12 bg-white">
                     <div className="container mx-auto px-4">
-                        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 -mt-24">
+                        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
                             {contactInfo.map((info) => (
                                 <a
                                     key={info.title}

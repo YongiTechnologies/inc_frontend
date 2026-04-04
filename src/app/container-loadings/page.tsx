@@ -1,7 +1,7 @@
 "use client";
 
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
+import Navbar from "@/components/common/Navbar";
+import Footer from "@/components/common/Footer";
 import { Ship, Calendar, Clock, MapPin, CheckCircle } from "lucide-react";
 import { Suspense } from "react";
 
@@ -56,12 +56,12 @@ function ContainerLoadingsContent() {
     return (
         <main className="bg-gray-50 min-h-screen">
             {/* Header Section */}
-            <section className="bg-[#000322] text-white py-20">
-                <div className="container mx-auto px-4 mt-12 text-center">
-                    <h1 className="text-4xl md:text-5xl font-bold mb-4">
+            <section className="pt-32 pb-10 bg-white shadow-sm">
+                <div className="container mx-auto px-4 text-center">
+                    <h1 className="text-3xl md:text-4xl font-bold text-black mb-4">
                         Container Loadings
                     </h1>
-                    <p className="text-xl text-gray-300 max-w-2xl mx-auto">
+                    <p className="text-xl text-gray-600 max-w-2xl mx-auto">
                         Track the latest shipping schedules and vessel arrivals.
                     </p>
                 </div>
@@ -149,7 +149,7 @@ function ContainerLoadingsContent() {
 export default function ContainerLoadingsPage() {
     return (
         <>
-            <Header />
+            <Navbar />
             <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
                 <ContainerLoadingsContent />
             </Suspense>

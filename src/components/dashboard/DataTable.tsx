@@ -1,0 +1,107 @@
+import React from "react";
+import { ChevronRight, ChevronLeft, Search, Filter, Download } from "lucide-react";
+
+interface Column {
+    header: string;
+    accessor: string;
+    render?: (item: any) => React.ReactNode;
+}
+
+interface DataTableProps {
+    columns: Column[];
+    data: any[];
+    onRowClick?: (item: any) => void;
+    isLoading?: boolean;
+}
+
+const DataTable: React.FC<DataTableProps> = ({
+    columns,
+    data,
+    onRowClick,
+    isLoading = false,
+}) => {
+    return (
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+            {/* Table Header / Actions */}
+            <div className="px-8 py-6 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/30">
+                <div className="relative flex-grow max-w-md">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                    <input 
+                        type="text" 
+                        placeholder="Search records..." 
+                        className="w-full pl-12 pr-4 py-2.5 bg-white border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#039B81]/20 focus:border-[#039B81]/50 transition-all font-medium"
+                    />
+                </div>
+                <div className="flex items-center gap-2">
+                    <button className="p-2.5 bg-white border border-slate-100 rounded-xl hover:bg-slate-50 transition-colors text-slate-500">
+                        <Filter size={18} />
+                    </button>
+                    <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-100 rounded-xl hover:bg-slate-50 transition-colors text-slate-700 font-bold text-xs uppercase tracking-widest">
+                        <Download size={18} />
+                        Export
+                    </button>
+                </div>
+            </div>
+
+            {/* Actual Table */}
+            <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                    <thead>
+                        <tr className="bg-slate-50/50">
+                            {columns.map((column, idx) => (
+                                <th key={idx} className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-50">
+                                    {column.header}
+                                </th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {isLoading ? (
+                            <tr>
+                                <td colSpan={columns.length} className="px-8 py-20 text-center">
+                                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#039B81] mx-auto" />
+                                    <p className="mt-4 text-slate-400 font-bold text-xs uppercase tracking-widest">Loading records...</p>
+                                </td>
+                            </tr>
+                        ) : data.length === 0 ? (
+                            <tr>
+                                <td colSpan={columns.length} className="px-8 py-20 text-center text-slate-400 text-sm font-medium">
+                                    No records found matching your criteria.
+                                </td>
+                            </tr>
+                        ) : (
+                            data.map((item, rowIdx) => (
+                                <tr 
+                                    key={rowIdx} 
+                                    onClick={() => onRowClick?.(item)}
+                                    className={`group hover:bg-slate-50/50 transition-colors cursor-pointer ${rowIdx !== data.length - 1 ? 'border-b border-slate-50' : ''}`}
+                                >
+                                    {columns.map((column, colIdx) => (
+                                        <td key={colIdx} className="px-8 py-5 text-sm font-bold text-slate-700">
+                                            {column.render ? column.render(item) : item[column.accessor]}
+                                        </td>
+                                    ))}
+                                </tr>
+                            ))
+                        )}
+                    </tbody>
+                </table>
+            </div>
+
+            {/* Pagination Placeholder */}
+            <div className="px-8 py-4 border-t border-slate-50 flex items-center justify-between bg-slate-50/10">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Showing 1 to {data.length} of {data.length} entries</span>
+                <div className="flex items-center gap-1">
+                    <button className="p-2 bg-white border border-slate-100 rounded-lg text-slate-300 disabled:opacity-30" disabled>
+                        <ChevronLeft size={16} />
+                    </button>
+                    <button className="p-2 bg-white border border-slate-100 rounded-lg text-slate-300 disabled:opacity-30" disabled>
+                        <ChevronRight size={16} />
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default DataTable;

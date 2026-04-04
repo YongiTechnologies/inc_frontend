@@ -1,5 +1,5 @@
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
+import Navbar from "@/components/common/Navbar";
+import Footer from "@/components/common/Footer";
 import HeroSection from "@/components/home/HeroSection";
 import ServicesGrid from "@/components/home/ServicesGrid";
 import StatsSection from "@/components/home/StatsSection";
@@ -9,7 +9,7 @@ import CTASection from "@/components/home/CTASection";
 export default function Home() {
   return (
     <>
-      <Header />
+      <Navbar />
       <main>
         <HeroSection />
         <ServicesGrid />

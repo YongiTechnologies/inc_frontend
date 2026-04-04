@@ -1,7 +1,7 @@
 "use client";
 
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
+import Navbar from "@/components/common/Navbar";
+import Footer from "@/components/common/Footer";
 import { Package, Search, Truck, CheckCircle, Clock, MapPin } from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -200,7 +200,7 @@ function TrackingContent() {
 export default function TrackingPage() {
     return (
         <>
-            <Header />
+            <Navbar />
             <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
                 <TrackingContent />
             </Suspense>
