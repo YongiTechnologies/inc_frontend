@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 import AuthSlider from "@/components/common/AuthSlider";
 import Image from "next/image";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://inc-backend-7nym.onrender.com";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 
 export default function LoginPage() {
     const [email, setEmail] = useState("");
