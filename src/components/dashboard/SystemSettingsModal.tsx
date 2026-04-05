@@ -42,21 +42,39 @@ export default function SystemSettingsModal({ onClose }: SystemSettingsModalProp
     }, [activeTab]);
 
     const logColumns = [
-        { 
-            header: "Action", 
+        {
+            header: "Action",
             accessor: "action",
             render: (item: any) => (
                 <span className="font-bold text-slate-700 capitalize">{item.action.replace(/_/g, ' ')}</span>
             )
         },
-        { header: "User", accessor: "userId", render: (item: any) => item.userEmail || item.userId || 'System' },
-        { header: "Details", accessor: "details" },
-        { 
-            header: "Timestamp", 
-            accessor: "createdAt",
+        {
+            header: "User",
+            accessor: "performedBy",
+            render: (item: any) => {
+                const user = item.performedBy;
+                if (!user) return 'System';
+                return `${user.name || user.email || 'Unknown'} (${user.role || 'No role'})`;
+            }
+        },
+        {
+            header: "Details",
+            accessor: "details",
+            render: (item: any) => {
+                if (!item.details) return '-';
+                if (typeof item.details === 'object') {
+                    return JSON.stringify(item.details);
+                }
+                return item.details;
+            }
+        },
+        {
+            header: "Timestamp",
+            accessor: "timestamp",
             render: (item: any) => (
                 <span className="text-slate-400 text-xs tabular-nums">
-                    {new Date(item.createdAt).toLocaleString()}
+                    {new Date(item.timestamp).toLocaleString()}
                 </span>
             )
         }

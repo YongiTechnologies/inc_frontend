@@ -33,7 +33,12 @@ export const getMyShipments = async (params: Record<string, any> = {}) => {
  */
 export const getAllShipments = async (params: Record<string, any> = {}) => {
     const { data: envelope } = await api.get('/api/shipments', { params });
-    return envelope.data;
+    const payload = envelope?.data ?? envelope;
+    // Backend returns { shipments, pagination }, frontend expects { items, pagination }
+    if (payload && payload.shipments) {
+        return { items: payload.shipments, pagination: payload.pagination };
+    }
+    return payload;
 };
 
 /**
