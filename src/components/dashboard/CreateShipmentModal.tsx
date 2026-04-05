@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X, Search } from "lucide-react";
 import Button from "@/components/common/Button";
 import { createShipment, searchCustomers } from "@/services/shipments";
@@ -34,27 +34,33 @@ export default function CreateShipmentModal({ isOpen, onClose, onSuccess }: Crea
     const [customerResults, setCustomerResults] = useState<any[]>([]);
     const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
     const [searchingCustomers, setSearchingCustomers] = useState(false);
+    useEffect(() => {
+        const query = formData.customerSearch.trim();
+        if (query.length < 2) {
+            setCustomerResults([]);
+            return;
+        }
 
-    if (!isOpen) return null;
-
-    const handleCustomerSearch = async (query: string) => {
-        setFormData({...formData, customerSearch: query});
-        setSelectedCustomer(null);
-        setFormData(prev => ({...prev, customerId: "", customerSearch: query}));
-        
-        if (query.length >= 2) {
+        const timer = window.setTimeout(async () => {
             setSearchingCustomers(true);
             try {
                 const results = await searchCustomers(query);
-                setCustomerResults(Array.isArray(results) ? results : []);
+                setCustomerResults(results);
             } catch (err) {
                 setCustomerResults([]);
             } finally {
                 setSearchingCustomers(false);
             }
-        } else {
-            setCustomerResults([]);
-        }
+        }, 250);
+
+        return () => window.clearTimeout(timer);
+    }, [formData.customerSearch]);
+
+    if (!isOpen) return null;
+
+    const handleCustomerSearch = (query: string) => {
+        setSelectedCustomer(null);
+        setFormData(prev => ({...prev, customerId: "", customerSearch: query}));
     };
 
     const selectCustomer = (customer: any) => {
@@ -123,32 +129,41 @@ export default function CreateShipmentModal({ isOpen, onClose, onSuccess }: Crea
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-5">
                     {error && <div className="p-3 bg-red-50 text-red-600 text-sm font-medium rounded-lg">{error}</div>}
+                    <div className="text-xs text-slate-500">
+                        Fields marked with <span className="text-red-500">*</span> are required.
+                    </div>
                     
                     {/* Tracking & Customer */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Tracking Number</label>
+                            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Tracking Number <span className="text-red-500">*</span></label>
                             <input required value={formData.trackingNumber} onChange={(e) => setFormData({...formData, trackingNumber: e.target.value})}
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#039B81]/20 transition-all text-sm"
                                 placeholder="GH-INC-001" minLength={3} maxLength={50} />
                         </div>
                         <div className="relative">
-                            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Customer</label>
+                            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Customer <span className="text-red-500">*</span></label>
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                                 <input required value={formData.customerSearch} onChange={(e) => handleCustomerSearch(e.target.value)}
                                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#039B81]/20 transition-all text-sm"
                                     placeholder="Search by name or email..." />
                             </div>
-                            {customerResults.length > 0 && (
+                            {(customerResults.length > 0 || (searchingCustomers && formData.customerSearch.trim().length >= 2)) && (
                                 <div className="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-40 overflow-y-auto">
-                                    {customerResults.map((c: any) => (
-                                        <button key={c._id || c.id} type="button" onClick={() => selectCustomer(c)}
-                                            className="w-full text-left px-4 py-2.5 hover:bg-slate-50 text-sm border-b border-slate-50 last:border-0">
-                                            <span className="font-semibold text-slate-700">{c.name}</span>
-                                            <span className="text-slate-400 ml-2 text-xs">{c.email}</span>
-                                        </button>
-                                    ))}
+                                    {searchingCustomers ? (
+                                        <div className="px-4 py-3 text-sm text-slate-500">Searching customers...</div>
+                                    ) : customerResults.length > 0 ? (
+                                        customerResults.map((c: any) => (
+                                            <button key={c._id || c.id} type="button" onClick={() => selectCustomer(c)}
+                                                className="w-full text-left px-4 py-2.5 hover:bg-slate-50 text-sm border-b border-slate-50 last:border-0">
+                                                <span className="font-semibold text-slate-700">{c.name}</span>
+                                                <span className="text-slate-400 ml-2 text-xs">{c.email}</span>
+                                            </button>
+                                        ))
+                                    ) : (
+                                        <div className="px-4 py-3 text-sm text-slate-500">No customers found.</div>
+                                    )}
                                 </div>
                             )}
                             {selectedCustomer && (
@@ -160,14 +175,14 @@ export default function CreateShipmentModal({ isOpen, onClose, onSuccess }: Crea
                     {/* Description & Package Type */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Description</label>
+                            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Description <span className="text-red-500">*</span></label>
                             <input required value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})}
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#039B81]/20 transition-all text-sm"
                                 placeholder="Mixed Clothing & Accessories" />
                         </div>
                         <div>
-                            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Package Type</label>
-                            <select value={formData.packageType} onChange={(e) => setFormData({...formData, packageType: e.target.value as any})}
+                            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Package Type <span className="text-red-500">*</span></label>
+                            <select required value={formData.packageType} onChange={(e) => setFormData({...formData, packageType: e.target.value as any})}
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#039B81]/20 transition-all text-sm text-slate-700">
                                 <option value="document">Document</option>
                                 <option value="parcel">Parcel</option>
@@ -179,7 +194,7 @@ export default function CreateShipmentModal({ isOpen, onClose, onSuccess }: Crea
 
                     {/* Origin */}
                     <div>
-                        <h3 className="text-xs font-black text-slate-600 uppercase tracking-widest mb-3">Origin</h3>
+                        <h3 className="text-xs font-black text-slate-600 uppercase tracking-widest mb-3">Origin <span className="text-red-500">*</span></h3>
                         <div className="grid grid-cols-3 gap-3">
                             <input required value={formData.originAddress} onChange={(e) => setFormData({...formData, originAddress: e.target.value})}
                                 className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#039B81]/20 transition-all text-sm"
@@ -195,7 +210,7 @@ export default function CreateShipmentModal({ isOpen, onClose, onSuccess }: Crea
 
                     {/* Destination */}
                     <div>
-                        <h3 className="text-xs font-black text-slate-600 uppercase tracking-widest mb-3">Destination</h3>
+                        <h3 className="text-xs font-black text-slate-600 uppercase tracking-widest mb-3">Destination <span className="text-red-500">*</span></h3>
                         <div className="grid grid-cols-3 gap-3">
                             <input required value={formData.destAddress} onChange={(e) => setFormData({...formData, destAddress: e.target.value})}
                                 className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#039B81]/20 transition-all text-sm"
