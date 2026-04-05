@@ -143,9 +143,47 @@ export const getLiveTrail = async (trackingNumber: string) => {
 
 /**
  * Employee: Search customers for shipment creation
- * GET /api/employees/customers/search?q=
+ * GET /api/admin/users?page=&limit=&role=customer&search=
  */
+const extractUsersFromResponse = (envelope: any) => {
+    const payload = envelope?.data ?? envelope;
+    if (!payload) return [];
+    if (Array.isArray(payload)) return payload;
+    return payload.users ?? payload.items ?? payload.data ?? [];
+};
+
 export const searchCustomers = async (query: string) => {
-    const { data: envelope } = await api.get('/api/employees/customers/search', { params: { q: query } });
-    return envelope.data;
+    const trimmed = query.trim();
+    if (trimmed.length < 2) return [];
+
+    const { data: envelope } = await api.get('/api/employee/users', {
+        params: {
+            role: 'customer',
+            limit: 10,
+            search: trimmed,
+            q: trimmed,
+        },
+    });
+
+    const users = extractUsersFromResponse(envelope);
+    if (Array.isArray(users) && users.length > 0) {
+        return users;
+    }
+
+    // Fallback: if the endpoint returns no search results, load customers and filter client-side.
+    const { data: fallbackEnvelope } = await api.get('/api/admin/users', {
+        params: {
+            role: 'customer',
+            limit: 100,
+        },
+    });
+    const allCustomers = extractUsersFromResponse(fallbackEnvelope);
+    return Array.isArray(allCustomers)
+        ? allCustomers.filter((user: any) => {
+            const searchValue = trimmed.toLowerCase();
+            return [user.name, user.email, user.phone]
+                .filter(Boolean)
+                .some((field: string) => field.toLowerCase().includes(searchValue));
+        })
+        : [];
 };
