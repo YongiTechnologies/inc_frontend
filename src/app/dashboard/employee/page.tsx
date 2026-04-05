@@ -8,16 +8,20 @@ import StatsWidget from "@/components/dashboard/StatsWidget";
 import DataTable from "@/components/dashboard/DataTable";
 import CreateShipmentModal from "@/components/dashboard/CreateShipmentModal";
 import UpdateStatusModal from "@/components/dashboard/UpdateStatusModal";
-import { Package, Truck, CheckCircle, Clock, Search, Filter, Plus, Ship, Power } from "lucide-react";
+import { Ship, CheckCircle, Clock, Plus, Power } from "lucide-react";
 import { useState, useEffect } from "react";
 import Button from "@/components/common/Button";
-import { getAllShipments } from "@/services/shipments";
+import { getAllShipments, getEmployeeStats } from "@/services/shipments";
+import { useAuth } from "@/context/AuthContext";
+import ProtectedRoute from "@/components/common/ProtectedRoute";
 
 export default function EmployeeDashboard() {
     const router = useRouter();
+    const { logout, user } = useAuth();
     const [shipments, setShipments] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [stats, setStats] = useState<any>(null);
     
     // Status Modal State
     const [statusModalShipmentId, setStatusModalShipmentId] = useState<string | null>(null);
@@ -26,7 +30,8 @@ export default function EmployeeDashboard() {
         setIsLoading(true);
         try {
             const data = await getAllShipments();
-            setShipments(Array.isArray(data) ? data : (data.shipments || []));
+            // API returns { items, pagination } or might be an array
+            setShipments(Array.isArray(data) ? data : (data?.items || []));
         } catch (error) {
             console.error("Failed to fetch shipments:", error);
         } finally {
@@ -35,45 +40,82 @@ export default function EmployeeDashboard() {
     };
 
     useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const [statsResult] = await Promise.allSettled([
+                    getEmployeeStats()
+                ]);
+                if (statsResult.status === 'fulfilled') {
+                    setStats(statsResult.value);
+                }
+            } catch (error) {
+                console.error("Failed to fetch stats:", error);
+            }
+        };
+        fetchData();
         fetchShipments();
     }, []);
 
-    const handleLogout = () => {
-        router.push('/');
+    const handleLogout = async () => {
+        await logout();
+    };
+
+    // Format status for display
+    const formatStatus = (status: string) => {
+        return status?.replace(/_/g, ' ').toUpperCase() || 'UNKNOWN';
+    };
+
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case 'delivered': return 'bg-green-100 text-green-700';
+            case 'in_transit': return 'bg-blue-100 text-blue-700';
+            case 'pending': return 'bg-yellow-100 text-yellow-700';
+            case 'customs': return 'bg-purple-100 text-purple-700';
+            case 'out_for_delivery': return 'bg-cyan-100 text-cyan-700';
+            case 'picked_up': return 'bg-indigo-100 text-indigo-700';
+            case 'failed': return 'bg-red-100 text-red-700';
+            case 'returned': return 'bg-orange-100 text-orange-700';
+            default: return 'bg-slate-100 text-slate-700';
+        }
     };
 
     const columns = [
-        { header: "Shipment ID", accessor: "id" },
-        { header: "Vessel/Flight", accessor: "vessel" },
-        { header: "Customer", accessor: "customer" },
+        { header: "Tracking #", accessor: "trackingNumber" },
+        { header: "Description", accessor: "description" },
+        { header: "Destination", accessor: "destination", render: (item: any) => (
+            <span className="text-sm">{item.destination?.city}, {item.destination?.country}</span>
+        )},
         { 
             header: "Status", 
             accessor: "status",
             render: (item: any) => (
-                <span className={`px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase ${
-                    item.status === "DELIVERED" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
-                }`}>
-                    {item.status}
+                <span className={`px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase ${getStatusColor(item.status)}`}>
+                    {formatStatus(item.status)}
                 </span>
             )
         },
-        { header: "ETA", accessor: "eta" },
+        { header: "ETA", accessor: "estimatedDelivery", render: (item: any) => (
+            <span className="text-sm">
+                {item.estimatedDelivery ? new Date(item.estimatedDelivery).toLocaleDateString() : 'N/A'}
+            </span>
+        )},
         {
             header: "Actions",
             accessor: "id",
             render: (item: any) => (
                 <button 
-                    onClick={() => setStatusModalShipmentId(item.id)}
+                    onClick={() => setStatusModalShipmentId(item._id || item.id)}
                     className="text-[#039B81] font-bold text-[10px] uppercase tracking-widest hover:underline"
                 >
-                    Edit Status
+                    Update Status
                 </button>
             )
         }
     ];
 
     return (
-        <div className="bg-slate-50 min-h-screen">
+        <ProtectedRoute allowedRoles={['employee', 'admin']}>
+            <div className="bg-slate-50 min-h-screen">
             <Navbar />
             <main className="pt-32 pb-20">
                 <div className="container mx-auto px-4">
@@ -81,7 +123,9 @@ export default function EmployeeDashboard() {
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
                         <div>
                             <h1 className="text-4xl font-black text-slate-800 tracking-tight mb-2">Employee Portal</h1>
-                            <p className="text-slate-500 font-medium">Manage logistics operations and updates.</p>
+                            <p className="text-slate-500 font-medium">
+                                {user ? `Welcome, ${user.name}` : "Manage logistics operations and updates."}
+                            </p>
                         </div>
                         <div className="flex items-center gap-3">
                             <Button onClick={() => setIsCreateModalOpen(true)} className="w-full md:w-auto py-3 text-xs font-black uppercase tracking-[0.2em]">
@@ -98,19 +142,19 @@ export default function EmployeeDashboard() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
                         <StatsWidget 
                             title="Active Shipments" 
-                            value="48" 
+                            value={stats ? String(stats.activeShipments ?? 0) : "..."} 
                             icon={Ship} 
                             color="indigo"
                         />
                         <StatsWidget 
                             title="Pending Updates" 
-                            value="12" 
+                            value={stats ? String(stats.pendingUpdates ?? 0) : "..."} 
                             icon={Clock} 
                             color="amber"
                         />
                         <StatsWidget 
                             title="Completed Today" 
-                            value="07" 
+                            value={stats ? String(stats.completedToday ?? 0) : "..."} 
                             icon={CheckCircle} 
                             color="emerald"
                         />
@@ -157,5 +201,6 @@ export default function EmployeeDashboard() {
                 shipmentId={statusModalShipmentId || ""} 
             />
         </div>
+        </ProtectedRoute>
     );
 }

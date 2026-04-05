@@ -10,7 +10,7 @@ export const setAccessToken = (token: string | null) => {
 export const getAccessToken = () => currentAccessToken;
 
 const api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_URL || "https://tala-dev-api-26jt.onrender.com",
+    baseURL: process.env.NEXT_PUBLIC_API_URL || "https://inc-backend-7nym.onrender.com",
     withCredentials: true, // Crucial for sending httpOnly refresh cookies
     headers: {
         "Content-Type": "application/json",
@@ -79,8 +79,8 @@ api.interceptors.response.use(
                     { withCredentials: true }
                 );
                 
-                // Determine the key for the access token from the backend
-                const newToken = response.data?.access_token || response.data?.accessToken || response.data?.token;
+                // Backend returns { success, message, data: { accessToken } }
+                const newToken = response.data?.data?.accessToken || response.data?.accessToken;
                 
                 if (newToken) {
                     setAccessToken(newToken);
@@ -101,7 +101,18 @@ api.interceptors.response.use(
                 isRefreshing = false;
             }
         }
-        
+
+        if (error.response?.status === 500) {
+            console.error("API 500 Error Body:", error.response.data);
+            console.error("API 500 Request URL:", originalRequest?.url);
+        }
+
+        // Silent 401 for /me — unexpected auth failure on a known protected route 
+        // that will be handled by ProtectedRoute component
+        if (error.response?.status === 401 && originalRequest?.url?.includes('/api/auth/me')) {
+            return Promise.reject(error);
+        }
+
         return Promise.reject(error);
     }
 );

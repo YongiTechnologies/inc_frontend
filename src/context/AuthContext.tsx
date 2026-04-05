@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import api, { setAccessToken } from "@/services/api";
 import { useRouter } from "next/navigation";
 
@@ -8,14 +8,19 @@ interface User {
     id: string;
     name: string;
     email: string;
+    phone?: string;
     role: "customer" | "employee" | "admin";
+    isActive?: boolean;
+    isVerified?: boolean;
+    createdAt?: string;
 }
 
 interface AuthContextType {
     user: User | null;
-    login: (credentials: any) => Promise<void>;
-    register: (userData: any) => Promise<void>;
+    login: (credentials: { email: string; password: string }) => Promise<void>;
+    register: (userData: { name: string; email: string; password: string; phone?: string }) => Promise<void>;
     logout: () => Promise<void>;
+    fetchUser: () => Promise<void>;
     isAuthenticated: boolean;
     isLoading: boolean;
 }
@@ -27,11 +32,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
 
-    const fetchUser = async () => {
+    const fetchUser = useCallback(async () => {
         try {
-            const { data } = await api.get("/api/auth/me");
-            // API might return standard data \{ user: User \} or just \{ id, name, ... \}
-            setUser(data.user || data);
+            const { data: envelope } = await api.get("/api/auth/me");
+            // Backend returns { success, message, data: User }
+            const userData = envelope.data || envelope;
+            setUser(userData);
         } catch (error) {
             // It's expected to fail if no valid refresh cookie exists. Just stay logged out silently.
             setUser(null);
@@ -39,48 +45,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
         // Attempt to fetch user profile on load. 
         // If a refresh token cookie is present, the axios interceptor will silently 
         // fetch an access token and this request will succeed, logging the user in.
         fetchUser();
-    }, []);
+    }, [fetchUser]);
 
-    const login = async (credentials: any) => {
+    const login = async (credentials: { email: string; password: string }) => {
         try {
             setIsLoading(true);
-            const { data } = await api.post("/api/auth/login", credentials);
-            const token = data.access_token || data.accessToken || data.token;
+            const { data: envelope } = await api.post("/api/auth/login", credentials);
+            // Backend returns { success, message, data: { accessToken, user } }
+            const token = envelope.data?.accessToken || envelope.accessToken;
             
             if (token) {
                 setAccessToken(token);
             }
-            
-            // Now fetch their profile data to populate user state
-            await fetchUser();
-        } catch (error) {
+
+            // If the backend returned user data directly, use it; otherwise fetch
+            if (envelope.data?.user) {
+                setUser(envelope.data.user);
+                setIsLoading(false);
+            } else {
+                await fetchUser();
+            }
+        } catch (error: any) {
             console.error("Login failed:", error);
+            if (error.response) {
+                console.error("Login Error Response Body:", error.response.data);
+                console.error("Login Error Status:", error.response.status);
+            }
             setIsLoading(false);
             throw error;
         }
     };
 
-    const register = async (userData: any) => {
+    const register = async (userData: { name: string; email: string; password: string; phone?: string }) => {
         try {
             setIsLoading(true);
             await api.post("/api/auth/register", userData);
             
-            // Follow immediately by logging in if password is provided
-            if (userData.password) {
-                await login({
-                    email: userData.email,
-                    password: userData.password
-                });
-            } else {
-                setIsLoading(false);
-            }
+            // Follow immediately by logging in
+            await login({
+                email: userData.email,
+                password: userData.password
+            });
         } catch (error) {
             console.error("Registration failed:", error);
             setIsLoading(false);
@@ -109,6 +121,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             login,
             register,
             logout, 
+            fetchUser,
             isAuthenticated: !!user,
             isLoading 
         }}>

@@ -90,6 +90,7 @@ export default function Header() {
                                     width={240}
                                     height={80}
                                     className="w-auto h-12 lg:h-20 object-contain"
+                                    style={{ width: 'auto', height: 'auto' }}
                                     priority
                                 />
                             </Link>
