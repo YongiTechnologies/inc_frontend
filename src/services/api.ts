@@ -10,7 +10,7 @@ export const setAccessToken = (token: string | null) => {
 export const getAccessToken = () => currentAccessToken;
 
 const api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_URL || "https://inc-backend-7nym.onrender.com",
+    baseURL: process.env.NEXT_PUBLIC_API_URL,
     withCredentials: true, // Crucial for sending httpOnly refresh cookies
     headers: {
         "Content-Type": "application/json",
