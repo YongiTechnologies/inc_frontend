@@ -60,16 +60,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const { data: envelope } = await api.post("/api/auth/login", credentials);
             // Backend returns { success, message, data: { accessToken, user } }
             const token = envelope.data?.accessToken || envelope.accessToken;
-            
+
+            console.log('[AuthContext] Login response:', envelope);
+            console.log('[AuthContext] Extracted token:', token ? '***' + token.slice(-8) : 'NONE');
+
             if (token) {
                 setAccessToken(token);
+                console.log('[AuthContext] Token set in memory');
             }
 
             // If the backend returned user data directly, use it; otherwise fetch
             if (envelope.data?.user) {
                 setUser(envelope.data.user);
+                console.log('[AuthContext] User set from login response:', envelope.data.user.email);
                 setIsLoading(false);
             } else {
+                console.log('[AuthContext] No user in login response, fetching...');
                 await fetchUser();
             }
         } catch (error: any) {

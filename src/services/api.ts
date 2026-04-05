@@ -39,6 +39,10 @@ api.interceptors.request.use(
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
+        // Debug: log requests without tokens to protected endpoints
+        if (!token && config.url && (config.url.includes('/api/shipments') || config.url.includes('/api/admin') || config.url.includes('/api/dashboard'))) {
+            console.warn('⚠️ Request to protected endpoint without token:', config.url);
+        }
         return config;
     },
     (error) => {
