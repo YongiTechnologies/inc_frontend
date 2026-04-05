@@ -78,6 +78,7 @@ export default function HeroSection() {
                                     fill
                                     className="object-cover"
                                     priority={index === 0}
+                                    sizes="100vw"
                                 />
                                 {/* Overlay */}
                                 <div className="absolute inset-0 bg-black/20" />

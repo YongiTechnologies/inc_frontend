@@ -33,6 +33,7 @@ const AuthSlider = () => {
                         fill
                         className="object-cover"
                         priority={index === 0}
+                        sizes="50vw"
                     />
                 </div>
             ))}

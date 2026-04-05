@@ -8,25 +8,42 @@ import { getPublicTracking } from "@/services/shipments";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
+// Format a Location object { address, city, country } to a readable string
+const formatLocation = (loc: any) => {
+    if (!loc) return "N/A";
+    if (typeof loc === 'string') return loc;
+    const parts = [loc.city, loc.country].filter(Boolean);
+    return parts.join(', ') || loc.address || "N/A";
+};
+
+// Map status to timeline props
+const getStatusDisplay = (status: string) => {
+    return status?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown';
+};
+
 function TrackingContent() {
     const searchParams = useSearchParams();
     const initialQuery = searchParams.get("q") || "";
     const [trackingNumber, setTrackingNumber] = useState(initialQuery);
     const [isSearching, setIsSearching] = useState(false);
-    const [result, setResult] = useState<null | "found" | "not-found">(initialQuery ? "found" : null);
-    const [trackingData, setTrackingData] = useState<any>(null);
+    const [result, setResult] = useState<null | "found" | "not-found">(null);
+    const [shipment, setShipment] = useState<any>(null);
+    const [events, setEvents] = useState<any[]>([]);
 
     const handleTrack = async (e: React.FormEvent) => {
         e.preventDefault();
         if (trackingNumber.trim()) {
             setIsSearching(true);
             try {
+                // API returns { shipment, events }
                 const data = await getPublicTracking(trackingNumber);
-                setTrackingData(data.shipment || data);
+                setShipment(data?.shipment || data);
+                setEvents(data?.events || []);
                 setResult("found");
             } catch (error) {
                 console.error("Tracking API Error", error);
-                setTrackingData(null);
+                setShipment(null);
+                setEvents([]);
                 setResult("not-found");
             } finally {
                 setIsSearching(false);
@@ -53,7 +70,7 @@ function TrackingContent() {
                                 <Package className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
                                 <input
                                     type="text"
-                                    placeholder="Enter tracking number (e.g., INC123456)"
+                                    placeholder="Enter tracking number (e.g., GHA-2024-001234)"
                                     value={trackingNumber}
                                     onChange={(e) => setTrackingNumber(e.target.value)}
                                     className="w-full pl-14 pr-4 py-4 rounded-xl bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#039B81]/20 focus:bg-white focus:border-[#039B81]/30 transition-all font-medium text-sm"
@@ -103,37 +120,39 @@ function TrackingContent() {
                         </div>
                     )}
 
-                    {result === "found" && trackingData && (
+                    {result === "found" && shipment && (
                         <div className="max-w-4xl mx-auto">
                             {/* Status Overview */}
                             <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 mb-8">
                                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
                                     <div>
                                         <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Tracking Number</p>
-                                        <p className="text-2xl font-black text-slate-800 tracking-tight">{trackingData.number || "INC" + Math.random().toString().slice(2, 8)}</p>
+                                        <p className="text-2xl font-black text-slate-800 tracking-tight">{shipment.trackingNumber}</p>
                                     </div>
                                     <div className="flex items-center gap-2 px-4 py-2 bg-[#039B81]/10 rounded-xl justify-center">
                                         <div className="w-2 h-2 bg-[#039B81] rounded-full animate-pulse" />
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-[#039B81]">{trackingData.status}</span>
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-[#039B81]">{getStatusDisplay(shipment.status)}</span>
                                     </div>
                                 </div>
 
                                 <div className="grid md:grid-cols-4 gap-4">
                                     <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Origin</p>
-                                        <p className="font-semibold text-sm text-slate-800">{trackingData.origin}</p>
+                                        <p className="font-semibold text-sm text-slate-800">{formatLocation(shipment.origin)}</p>
                                     </div>
                                     <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Destination</p>
-                                        <p className="font-semibold text-sm text-slate-800">{trackingData.destination}</p>
+                                        <p className="font-semibold text-sm text-slate-800">{formatLocation(shipment.destination)}</p>
                                     </div>
                                     <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Est. Delivery</p>
-                                        <p className="font-semibold text-sm text-slate-800">{trackingData.estimatedDelivery}</p>
+                                        <p className="font-semibold text-sm text-slate-800">
+                                            {shipment.estimatedDelivery ? new Date(shipment.estimatedDelivery).toLocaleDateString() : 'TBD'}
+                                        </p>
                                     </div>
                                     <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Weight</p>
-                                        <p className="font-semibold text-sm text-slate-800">{trackingData.weight}</p>
+                                        <p className="font-semibold text-sm text-slate-800">{shipment.weight ? `${shipment.weight} kg` : 'N/A'}</p>
                                     </div>
                                 </div>
                             </div>
@@ -141,42 +160,57 @@ function TrackingContent() {
                             {/* Timeline */}
                             <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
                                 <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-8">Shipment Timeline</h3>
-                                <div className="space-y-0">
-                                    {trackingData.timeline?.map((event: any, index: number) => (
-                                        <div key={index} className="flex gap-4">
-                                            <div className="flex flex-col items-center">
-                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${event.completed
-                                                    ? "bg-[#10b981]"
-                                                    : event.current
-                                                        ? "bg-[#039B81]"
-                                                        : "bg-gray-200"
-                                                    }`}>
-                                                    {event.completed ? (
-                                                        <CheckCircle className="text-white" size={16} />
-                                                    ) : event.current ? (
-                                                        <Truck className="text-white" size={16} />
-                                                    ) : (
-                                                        <Clock className="text-slate-400" size={16} />
-                                                    )}
+                                {events.length > 0 ? (
+                                    <div className="space-y-0">
+                                        {events.map((event: any, index: number) => {
+                                            const isLatest = index === 0;
+                                            const isCompleted = index > 0;
+                                            
+                                            return (
+                                                <div key={event._id || event.id || index} className="flex gap-4">
+                                                    <div className="flex flex-col items-center">
+                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                                            isLatest ? "bg-[#039B81]" : isCompleted ? "bg-[#10b981]" : "bg-gray-200"
+                                                        }`}>
+                                                            {isLatest ? (
+                                                                <Truck className="text-white" size={16} />
+                                                            ) : isCompleted ? (
+                                                                <CheckCircle className="text-white" size={16} />
+                                                            ) : (
+                                                                <Clock className="text-slate-400" size={16} />
+                                                            )}
+                                                        </div>
+                                                        {index < events.length - 1 && (
+                                                            <div className={`w-0.5 h-12 ${isCompleted ? "bg-[#10b981]" : "bg-slate-200"}`} />
+                                                        )}
+                                                    </div>
+                                                    <div className="pb-8">
+                                                        <p className={`font-black text-sm uppercase tracking-wide ${isLatest ? "text-[#039B81]" : "text-slate-800"}`}>
+                                                            {getStatusDisplay(event.status)}
+                                                        </p>
+                                                        <p className="text-xs text-slate-500 font-medium font-mono mt-0.5">
+                                                            {event.timestamp ? new Date(event.timestamp).toLocaleString() : ''}
+                                                        </p>
+                                                        {event.location && (
+                                                            <div className="flex items-center gap-1 text-xs text-slate-400 font-medium mt-1">
+                                                                <MapPin size={12} />
+                                                                <span>{formatLocation(event.location)}</span>
+                                                            </div>
+                                                        )}
+                                                        {event.note && (
+                                                            <p className="text-xs text-slate-500 mt-1">{event.note}</p>
+                                                        )}
+                                                        {event.carrier && (
+                                                            <p className="text-xs text-slate-400 mt-0.5">Carrier: {event.carrier}</p>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                                {index < trackingData.timeline.length - 1 && (
-                                                    <div className={`w-0.5 h-12 ${event.completed ? "bg-[#10b981]" : "bg-slate-200"
-                                                        }`} />
-                                                )}
-                                            </div>
-                                            <div className="pb-8">
-                                                <p className={`font-black text-sm uppercase tracking-wide ${event.current ? "text-[#039B81]" : event.completed ? "text-slate-800" : "text-slate-400"}`}>
-                                                    {event.status}
-                                                </p>
-                                                <p className="text-xs text-slate-500 font-medium font-mono mt-0.5">{event.date}</p>
-                                                <div className="flex items-center gap-1 text-xs text-slate-400 font-medium mt-1">
-                                                    <MapPin size={12} />
-                                                    <span>{event.location}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <p className="text-slate-400 text-sm font-medium text-center py-8">No tracking events recorded yet.</p>
+                                )}
                             </div>
                         </div>
                     )}

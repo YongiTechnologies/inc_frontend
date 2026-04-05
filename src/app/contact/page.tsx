@@ -4,6 +4,7 @@ import Navbar from "@/components/common/Navbar";
 import Footer from "@/components/common/Footer";
 import { Phone, Mail, MapPin, Clock, Send } from "lucide-react";
 import { useState } from "react";
+import { submitContact } from "@/services/contact";
 
 const contactInfo = [
     {
@@ -40,12 +41,30 @@ export default function ContactPage() {
         subject: "",
         message: "",
     });
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [successMsg, setSuccessMsg] = useState("");
+    const [errorMsg, setErrorMsg] = useState("");
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        // Handle form submission here
-        alert("Thank you for your message! We will get back to you soon.");
-        setFormData({ name: "", email: "", phone: "", subject: "", message: "" });
+        setIsSubmitting(true);
+        setSuccessMsg("");
+        setErrorMsg("");
+        try {
+            const result = await submitContact({
+                name: formData.name,
+                email: formData.email,
+                phone: formData.phone || undefined,
+                subject: formData.subject,
+                message: formData.message,
+            });
+            setSuccessMsg(result.message || "Thank you for your message! We will get back to you soon.");
+            setFormData({ name: "", email: "", phone: "", subject: "", message: "" });
+        } catch (err: any) {
+            setErrorMsg(err.response?.data?.message || "Failed to send message. Please try again.");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -167,12 +186,19 @@ export default function ContactPage() {
                                             placeholder="How can we help you?"
                                         />
                                     </div>
+                                    {successMsg && <div className="p-3 bg-green-50 text-green-700 text-sm font-medium rounded-lg">{successMsg}</div>}
+                                    {errorMsg && <div className="p-3 bg-red-50 text-red-600 text-sm font-medium rounded-lg">{errorMsg}</div>}
                                     <button
                                         type="submit"
-                                        className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-[#FC6100] hover:bg-[#E05500] text-white font-semibold rounded-lg transition-colors"
+                                        disabled={isSubmitting}
+                                        className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-[#FC6100] hover:bg-[#E05500] disabled:bg-slate-300 text-white font-semibold rounded-lg transition-colors"
                                     >
-                                        <Send size={20} />
-                                        Send Message
+                                        {isSubmitting ? (
+                                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                        ) : (
+                                            <Send size={20} />
+                                        )}
+                                        {isSubmitting ? "Sending..." : "Send Message"}
                                     </button>
                                 </form>
                             </div>

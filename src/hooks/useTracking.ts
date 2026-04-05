@@ -12,10 +12,12 @@ export const useTracking = (trackingNumber: string) => {
         setIsLoading(true);
         setError(null);
         try {
-            const response = await api.get(`/shipments/${num}/tracking`);
-            setTrackingData(response.data);
+            const { data: envelope } = await api.get(`/api/shipments/${num}/tracking`);
+            // Backend returns { success, message, data: { shipment, events } }
+            setTrackingData(envelope.data);
         } catch (err: any) {
-            setError(err.message || "Failed to fetch tracking data");
+            const msg = err.response?.data?.message || err.message || "Failed to fetch tracking data";
+            setError(msg);
             console.error("Tracking fetch error", err);
         } finally {
             setIsLoading(false);

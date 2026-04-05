@@ -8,35 +8,63 @@ import StatsWidget from "@/components/dashboard/StatsWidget";
 import ShipmentCard from "@/components/dashboard/ShipmentCard";
 import { Package, Truck, CheckCircle, Clock, Search, Filter, Power } from "lucide-react";
 import { useState, useEffect } from "react";
-import { getMyShipments } from "@/services/shipments";
+import { getMyShipments, getCustomerStats } from "@/services/shipments";
+import { useAuth } from "@/context/AuthContext";
+import ProtectedRoute from "@/components/common/ProtectedRoute";
 
 export default function CustomerDashboard() {
     const router = useRouter();
+    const { logout, user } = useAuth();
     const [searchQuery, setSearchQuery] = useState("");
     const [shipments, setShipments] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [stats, setStats] = useState<any>(null);
 
     useEffect(() => {
-        const fetchShipments = async () => {
+        const fetchData = async () => {
             try {
-                const data = await getMyShipments();
-                // Assumes the API returns an array or an object containing \{ shipments: [] \}
-                setShipments(Array.isArray(data) ? data : (data.shipments || []));
+                // Fetch stats and shipments in parallel
+                const [statsData, shipmentsData] = await Promise.allSettled([
+                    getCustomerStats(),
+                    getMyShipments()
+                ]);
+
+                if (statsData.status === 'fulfilled') {
+                    setStats(statsData.value);
+                }
+
+                if (shipmentsData.status === 'fulfilled') {
+                    const data = shipmentsData.value;
+                    // API may return { items, pagination } or an array
+                    setShipments(Array.isArray(data) ? data : (data?.items || []));
+                }
             } catch (error) {
-                console.error("Failed to fetch shipments:", error);
+                console.error("Failed to fetch data:", error);
             } finally {
                 setIsLoading(false);
             }
         };
-        fetchShipments();
+        fetchData();
     }, []);
 
-    const handleLogout = () => {
-        router.push('/');
+    const handleLogout = async () => {
+        await logout();
+    };
+
+    // Format the next delivery date
+    const formatNextDelivery = (dateStr: string | null) => {
+        if (!dateStr) return "N/A";
+        const date = new Date(dateStr);
+        const diffMs = date.getTime() - Date.now();
+        const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        if (diffDays < 0) return "Overdue";
+        if (diffDays === 0) return "Today";
+        return `${diffDays} Days`;
     };
 
     return (
-        <div className="bg-slate-50 min-h-screen">
+        <ProtectedRoute allowedRoles={['customer']}>
+            <div className="bg-slate-50 min-h-screen">
             <Navbar />
             <main className="pt-32 pb-20">
                 <div className="container mx-auto px-4">
@@ -44,7 +72,9 @@ export default function CustomerDashboard() {
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
                         <div>
                             <h1 className="text-4xl font-black text-slate-800 tracking-tight mb-2">My Dashboard</h1>
-                            <p className="text-slate-500 font-medium">Manage and track your active shipments.</p>
+                            <p className="text-slate-500 font-medium">
+                                {user ? `Welcome back, ${user.name}` : "Manage and track your active shipments."}
+                            </p>
                         </div>
                         <div className="flex items-center gap-3">
                             <div className="relative group">
@@ -70,28 +100,28 @@ export default function CustomerDashboard() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
                         <StatsWidget 
                             title="Total Shipments" 
-                            value="12" 
+                            value={stats ? String(stats.totalShipments ?? 0) : "..."} 
                             icon={Package} 
                             trend={{ value: 8, isPositive: true }}
                             color="indigo"
                         />
                         <StatsWidget 
                             title="In Transit" 
-                            value="04" 
+                            value={stats ? String(stats.inTransit ?? 0) : "..."} 
                             icon={Truck} 
                             color="amber"
                         />
                         <StatsWidget 
                             title="Delivered" 
-                            value="08" 
+                            value={stats ? String(stats.delivered ?? 0) : "..."} 
                             icon={CheckCircle} 
                             color="emerald"
                         />
                         <StatsWidget 
-                            title="Estimated Time" 
-                            value="14 Days" 
+                            title="Next Delivery" 
+                            value={stats ? formatNextDelivery(stats.nextDelivery) : "..."} 
                             icon={Clock} 
-                            description="Average delivery time"
+                            description="Estimated arrival"
                         />
                     </div>
 
@@ -113,10 +143,26 @@ export default function CustomerDashboard() {
                                     Loading your shipments...
                                 </div>
                             ) : shipments.length > 0 ? (
-                                shipments.map((shipment) => (
+                                shipments
+                                    .filter(s => {
+                                        if (!searchQuery) return true;
+                                        const q = searchQuery.toLowerCase();
+                                        return (
+                                            s.trackingNumber?.toLowerCase().includes(q) ||
+                                            s.description?.toLowerCase().includes(q) ||
+                                            s.destination?.city?.toLowerCase().includes(q)
+                                        );
+                                    })
+                                    .map((shipment) => (
                                     <ShipmentCard 
-                                        key={shipment.id}
-                                        {...shipment}
+                                        key={shipment._id || shipment.id}
+                                        id={shipment._id || shipment.id}
+                                        trackingNumber={shipment.trackingNumber}
+                                        status={shipment.status}
+                                        origin={`${shipment.origin?.city || ''}, ${shipment.origin?.country || ''}`}
+                                        destination={`${shipment.destination?.city || ''}, ${shipment.destination?.country || ''}`}
+                                        estimatedDelivery={shipment.estimatedDelivery}
+                                        description={shipment.description}
                                     />
                                 ))
                             ) : (
@@ -130,5 +176,6 @@ export default function CustomerDashboard() {
             </main>
             <Footer />
         </div>
+        </ProtectedRoute>
     );
 }
