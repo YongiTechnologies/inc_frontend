@@ -34,11 +34,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const fetchUser = useCallback(async () => {
         try {
+            const token = getAccessToken();
+            console.log('[fetchUser] Access token present:', !!token);
             const { data: envelope } = await api.get("/api/auth/me");
             // Backend returns { success, message, data: User }
             const userData = envelope.data || envelope;
             setUser(userData);
-        } catch (error) {
+            console.log('[fetchUser] User loaded:', userData?.email, userData?.role);
+        } catch (error: any) {
+            console.log('[fetchUser] Failed:', error.response?.status, error.message);
             // It's expected to fail if no valid refresh cookie exists. Just stay logged out silently.
             setUser(null);
             setAccessToken(null);
