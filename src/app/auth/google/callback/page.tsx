@@ -22,7 +22,9 @@ function GoogleCallbackContent() {
         }
 
         if (token) {
+            // Store token in localStorage so it persists across page reloads
             setAccessToken(token);
+            // Then fetch the user profile
             fetchUser().catch(() => {
                 setError("Failed to load user profile.");
                 setTimeout(() => router.push("/auth/login"), 3000);

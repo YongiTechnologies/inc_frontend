@@ -1,13 +1,29 @@
 import axios, { InternalAxiosRequestConfig, AxiosError } from "axios";
 
-// Keep access token in memory
-let currentAccessToken: string | null = null;
+const ACCESS_TOKEN_KEY = 'access_token';
 
-export const setAccessToken = (token: string | null) => {
-    currentAccessToken = token;
+// Persist access token in localStorage so it survives page reloads
+const getStoredToken = (): string | null => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem(ACCESS_TOKEN_KEY);
 };
 
-export const getAccessToken = () => currentAccessToken;
+const setStoredToken = (token: string | null): void => {
+    if (typeof window === 'undefined') return;
+    if (token) {
+        localStorage.setItem(ACCESS_TOKEN_KEY, token);
+    } else {
+        localStorage.removeItem(ACCESS_TOKEN_KEY);
+    }
+};
+
+export const setAccessToken = (token: string | null) => {
+    setStoredToken(token);
+};
+
+export const getAccessToken = (): string | null => {
+    return getStoredToken();
+};
 
 const api = axios.create({
     baseURL: process.env.NEXT_PUBLIC_API_URL,
@@ -98,7 +114,7 @@ api.interceptors.response.use(
             } catch (refreshError) {
                 processQueue(refreshError, null);
                 setAccessToken(null);
-                // We do NOT forcefully redirect here, because public pages might trigger 401 on /me. 
+                // We do NOT forcefully redirect here, because public pages might trigger 401 on /me.
                 // The AuthContext will catch the failed /me call and set user state to logged out.
                 return Promise.reject(refreshError);
             } finally {
