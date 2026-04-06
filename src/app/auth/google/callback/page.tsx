@@ -15,9 +15,6 @@ function GoogleCallbackContent() {
         const token = searchParams.get("token");
         const errorParam = searchParams.get("error");
 
-        console.log('[GoogleCallback] Token from URL:', token ? 'present' : 'missing');
-        console.log('[GoogleCallback] Error param:', errorParam);
-
         if (errorParam) {
             setError("Google authentication failed. Please try again.");
             setTimeout(() => router.push("/auth/login"), 3000);
@@ -27,12 +24,8 @@ function GoogleCallbackContent() {
         if (token) {
             // Store token in localStorage so it persists across page reloads
             setAccessToken(token);
-            console.log('[GoogleCallback] Token stored in localStorage');
             // Then fetch the user profile
-            fetchUser().then(() => {
-                console.log('[GoogleCallback] fetchUser succeeded');
-            }).catch((err) => {
-                console.error('[GoogleCallback] fetchUser failed:', err);
+            fetchUser().catch(() => {
                 setError("Failed to load user profile.");
                 setTimeout(() => router.push("/auth/login"), 3000);
             });
