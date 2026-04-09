@@ -12,6 +12,15 @@ interface DataTableProps {
     data: any[];
     onRowClick?: (item: any) => void;
     isLoading?: boolean;
+    searchValue?: string;
+    onSearchChange?: (value: string) => void;
+    pagination?: {
+        total: number;
+        page: number;
+        limit: number;
+        pages: number;
+    };
+    onPageChange?: (page: number) => void;
 }
 
 const DataTable: React.FC<DataTableProps> = ({
@@ -19,7 +28,14 @@ const DataTable: React.FC<DataTableProps> = ({
     data,
     onRowClick,
     isLoading = false,
+    searchValue = "",
+    onSearchChange,
+    pagination,
+    onPageChange,
 }) => {
+    const startRange = pagination ? (pagination.page - 1) * pagination.limit + 1 : 1;
+    const endRange = pagination ? Math.min(pagination.page * pagination.limit, pagination.total) : data.length;
+
     return (
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
             {/* Table Header / Actions */}
@@ -28,7 +44,9 @@ const DataTable: React.FC<DataTableProps> = ({
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
                     <input 
                         type="text" 
-                        placeholder="Search records..." 
+                        placeholder="Search tracking #, city, or description..." 
+                        value={searchValue}
+                        onChange={(e) => onSearchChange?.(e.target.value)}
                         className="w-full pl-12 pr-4 py-2.5 bg-white border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#039B81]/20 focus:border-[#039B81]/50 transition-all font-medium"
                     />
                 </div>
@@ -90,12 +108,22 @@ const DataTable: React.FC<DataTableProps> = ({
 
             {/* Pagination Placeholder */}
             <div className="px-8 py-4 border-t border-slate-50 flex items-center justify-between bg-slate-50/10">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Showing 1 to {data.length} of {data.length} entries</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    Showing {data.length > 0 ? startRange : 0} to {endRange} of {pagination?.total || data.length} entries
+                </span>
                 <div className="flex items-center gap-1">
-                    <button className="p-2 bg-white border border-slate-100 rounded-lg text-slate-300 disabled:opacity-30" disabled>
+                    <button 
+                        onClick={() => onPageChange?.(pagination!.page - 1)}
+                        disabled={!pagination || pagination.page <= 1}
+                        className="p-2 bg-white border border-slate-100 rounded-lg text-slate-400 disabled:opacity-30 hover:bg-slate-50 transition-colors"
+                    >
                         <ChevronLeft size={16} />
                     </button>
-                    <button className="p-2 bg-white border border-slate-100 rounded-lg text-slate-300 disabled:opacity-30" disabled>
+                    <button 
+                        onClick={() => onPageChange?.(pagination!.page + 1)}
+                        disabled={!pagination || pagination.page >= pagination.pages}
+                        className="p-2 bg-white border border-slate-100 rounded-lg text-slate-400 disabled:opacity-30 hover:bg-slate-50 transition-colors"
+                    >
                         <ChevronRight size={16} />
                     </button>
                 </div>
