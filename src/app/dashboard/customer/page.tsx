@@ -3,20 +3,11 @@
 import { useRouter } from "next/navigation";
 
 import Navbar from "@/components/common/Navbar";
-import Footer from "@/components/common/Footer";
 import StatsWidget from "@/components/dashboard/StatsWidget";
 import ShipmentCard from "@/components/dashboard/ShipmentCard";
-import {
-  Package,
-  Truck,
-  CheckCircle,
-  Clock,
-  Search,
-  Filter,
-  Power,
-} from "lucide-react";
-import { useState, useEffect } from "react";
-import { getMyShipments } from "@/services/shipments";
+import { Package, Truck, CheckCircle, Clock, Search, Filter, Power, RefreshCw } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { getMyShipments, getCustomerStats } from "@/services/shipments";
 import { useAuth } from "@/context/AuthContext";
 import ProtectedRoute from "@/components/common/ProtectedRoute";
 
@@ -25,42 +16,36 @@ export default function CustomerDashboard() {
   const { logout, user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [shipments, setShipments] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [viewMode, setViewMode] = useState<'active' | 'history'>('active');
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const data = await getMyShipments();
-        // API returns { shipments, pagination }
-        const items = Array.isArray(data) ? data : data?.shipments || data?.items || [];
-        setShipments(items);
-      } catch (error) {
-        console.error("Failed to fetch data:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
+  const fetchData = useCallback(async (isSilent = false) => {
+    if (!isSilent) setIsLoading(true);
+    else setIsRefreshing(true);
+    
+    try {
+      const [shipmentsData, statsData] = await Promise.all([
+        getMyShipments(),
+        getCustomerStats()
+      ]);
+      
+      // API returns { shipments, pagination }
+      const items = Array.isArray(shipmentsData) ? shipmentsData : shipmentsData?.shipments || shipmentsData?.items || [];
+      setShipments(items);
+      setStats(statsData);
+    } catch (error) {
+      console.error("Failed to fetch data:", error);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
   }, []);
 
-  // Calculate stats from shipments
-  const stats =
-    shipments.length > 0
-      ? {
-          totalShipments: shipments.length,
-          inTransit: shipments.filter((s) =>
-            ["in_transit", "out_for_delivery", "picked_up"].includes(s.status),
-          ).length,
-          delivered: shipments.filter((s) => s.status === "delivered").length,
-          nextDelivery: shipments
-            .filter((s) => s.status !== "delivered" && s.estimatedDelivery)
-            .sort(
-              (a, b) =>
-                new Date(a.estimatedDelivery).getTime() -
-                new Date(b.estimatedDelivery).getTime(),
-            )[0]?.estimatedDelivery,
-        }
-      : null;
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleLogout = async () => {
     await logout();
@@ -109,8 +94,12 @@ export default function CustomerDashboard() {
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </div>
-                <button className="p-3 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-[#039B81] hover:border-[#039B81]/30 transition-all">
-                  <Filter size={20} />
+                <button
+                  onClick={() => fetchData(true)}
+                  className={`p-3 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-[#039B81] hover:border-[#039B81]/30 transition-all ${isRefreshing ? 'animate-spin text-[#039B81]' : ''}`}
+                  title="Refresh Data"
+                >
+                  <RefreshCw size={20} />
                 </button>
                 <button
                   onClick={handleLogout}
@@ -158,9 +147,20 @@ export default function CustomerDashboard() {
                   <span className="w-2 h-8 bg-[#FC6100] rounded-full" />
                   Active Shipments
                 </h2>
-                <button className="text-[#039B81] font-bold text-sm hover:underline uppercase tracking-widest">
-                  View History
-                </button>
+                <div className="flex bg-slate-100 p-1 rounded-xl">
+                  <button 
+                    onClick={() => setViewMode('active')}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'active' ? 'bg-white text-[#FC6100] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                  >
+                    Active
+                  </button>
+                  <button 
+                    onClick={() => setViewMode('history')}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${viewMode === 'history' ? 'bg-white text-[#FC6100] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                  >
+                    History
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -170,6 +170,14 @@ export default function CustomerDashboard() {
                   </div>
                 ) : shipments.length > 0 ? (
                   shipments
+                    .filter((s) => {
+                      // Filter by Active/History
+                      if (viewMode === 'active') {
+                        return !['delivered', 'failed', 'returned'].includes(s.status);
+                      } else {
+                        return ['delivered', 'failed', 'returned'].includes(s.status);
+                      }
+                    })
                     .filter((s) => {
                       if (!searchQuery) return true;
                       const q = searchQuery.toLowerCase();
@@ -200,7 +208,6 @@ export default function CustomerDashboard() {
             </div>
           </div>
         </main>
-        <Footer />
       </div>
     </ProtectedRoute>
   );

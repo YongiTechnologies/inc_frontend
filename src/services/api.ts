@@ -1,6 +1,6 @@
 import axios, { InternalAxiosRequestConfig, AxiosError } from "axios";
 
-const ACCESS_TOKEN_KEY = 'access_token';
+import { ACCESS_TOKEN_KEY } from "@/config/constants";
 
 // Persist access token in localStorage so it survives page reloads
 const getStoredToken = (): string | null => {
@@ -55,6 +55,13 @@ api.interceptors.request.use(
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
+
+        // Fix for multipart/form-data: remove default application/json if sending FormData
+        // This allows the browser to set the correct Content-Type with the boundary
+        if (config.data instanceof FormData) {
+            delete config.headers["Content-Type"];
+        }
+
         // Debug: log requests without tokens to protected endpoints
         if (!token && config.url && (config.url.includes('/api/shipments') || config.url.includes('/api/admin') || config.url.includes('/api/dashboard'))) {
             console.warn('⚠️ Request to protected endpoint without token:', config.url);
