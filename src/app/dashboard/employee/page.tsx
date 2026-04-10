@@ -8,7 +8,7 @@ import DataTable from "@/components/dashboard/DataTable";
 import CreateShipmentModal from "@/components/dashboard/CreateShipmentModal";
 import UpdateStatusModal from "@/components/dashboard/UpdateStatusModal";
 import BulkUploadModal from "@/components/dashboard/BulkUploadModal";
-import { Ship, CheckCircle, Clock, Plus, Power, FileUp, RefreshCw } from "lucide-react";
+import { Ship, CheckCircle, Clock, Plus, Power, FileUp, RefreshCw, AlertTriangle } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import Button from "@/components/common/Button";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -212,7 +212,7 @@ export default function EmployeeDashboard() {
                         </div>
 
                         {/* Stats Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
                             <StatsWidget
                                 title="Active Shipments"
                                 value={stats ? String(stats.activeShipments ?? 0) : "..."}
@@ -224,6 +224,12 @@ export default function EmployeeDashboard() {
                                 value={stats ? String(stats.pendingUpdates ?? 0) : "..."}
                                 icon={Clock}
                                 color="amber"
+                            />
+                            <StatsWidget
+                                title="On Hold"
+                                value={stats ? String(stats.heldShipments ?? 0) : "..."}
+                                icon={AlertTriangle}
+                                color="rose"
                             />
                             <StatsWidget
                                 title="Completed Today"
