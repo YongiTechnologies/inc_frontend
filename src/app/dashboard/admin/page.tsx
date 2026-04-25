@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 
 import Navbar from "@/components/common/Navbar";
-import Footer from "@/components/common/Footer";
 import StatsWidget from "@/components/dashboard/StatsWidget";
 import DataTable from "@/components/dashboard/DataTable";
 import { Users, Shield, TrendingUp, Package, Plus, UserPlus, Settings, Power, X, Eye, EyeOff } from "lucide-react";
@@ -14,6 +13,7 @@ import { getUsers, createUser, updateUser } from "@/services/admin";
 import { useAuth } from "@/context/AuthContext";
 import SystemSettingsModal from "@/components/dashboard/SystemSettingsModal";
 import ProtectedRoute from "@/components/common/ProtectedRoute";
+import { USER_ROLES, ROLE_BADGE_COLORS } from "@/config/constants";
 
 export default function AdminDashboard() {
     const router = useRouter();
@@ -64,11 +64,7 @@ export default function AdminDashboard() {
     };
 
     const getRoleBadgeClass = (role: string) => {
-        switch (role?.toLowerCase()) {
-            case 'admin': return 'bg-purple-100 text-purple-700';
-            case 'employee': return 'bg-blue-100 text-blue-700';
-            default: return 'bg-slate-100 text-slate-700';
-        }
+        return ROLE_BADGE_COLORS[role?.toLowerCase()] || ROLE_BADGE_COLORS[USER_ROLES.CUSTOMER];
     };
 
     const columns = [
@@ -195,7 +191,6 @@ export default function AdminDashboard() {
                     </div>
                 </div>
             </main>
-            <Footer />
 
             {/* Create User Modal */}
             {showCreateUserModal && (

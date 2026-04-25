@@ -1,4 +1,10 @@
 import api from './api';
+import { 
+    ShipmentItem, 
+    NewShipmentPayload, 
+    CheckpointPayload, 
+    PaginatedResponse 
+} from '@/types/shipment';
 
 // ═══════════════════════════════════════════════════
 // PUBLIC / CUSTOMER endpoints
@@ -43,33 +49,24 @@ export const getAllShipments = async (params: Record<string, any> = {}) => {
 };
 
 /**
- * Employee / Admin: Get all batch shipment items (from Excel uploads)
- * GET /api/shipments/all
- * Note: This queries the ShipmentItem model (batch system)
+ * Employee / Admin: Paginated list of all BATCH shipment items (from Excel uploads)
+ * GET /api/batch-shipments?page=&limit=&status=&search=
  */
-export const getAllBatchShipments = async (params: Record<string, any> = {}) => {
-    const { data: envelope } = await api.get('/api/shipments/all', { params });
-    return envelope.data;
+export const getBatchShipments = async (params: Record<string, any> = {}) => {
+    const { data: envelope } = await api.get('/api/batch-shipments', { params });
+    const payload = envelope?.data ?? envelope;
+    // Backend returns { items, pagination }
+    if (payload && payload.items) {
+        return { items: payload.items, pagination: payload.pagination };
+    }
+    return payload;
 };
 
 /**
  * Employee / Admin: Create a new shipment
  * POST /api/shipments
  */
-export const createShipment = async (payload: {
-    trackingNumber: string;
-    customerId: string;
-    origin: { address: string; city: string; country: string; coordinates?: number[] };
-    destination: { address: string; city: string; country: string; coordinates?: number[] };
-    description: string;
-    packageType?: 'document' | 'parcel' | 'pallet' | 'container';
-    weight?: number;
-    quantity?: number;
-    declaredValue?: number;
-    estimatedDelivery?: string;
-    requiresCustoms?: boolean;
-    isFragile?: boolean;
-}) => {
+export const createShipment = async (payload: NewShipmentPayload) => {
     const { data: envelope } = await api.post('/api/shipments', payload);
     return envelope.data;
 };
@@ -96,14 +93,7 @@ export const getInternalTracking = async (id: string) => {
  * Employee / Admin: Log a new tracking checkpoint
  * POST /api/shipments/{id}/tracking
  */
-export const logCheckpoint = async (id: string, payload: {
-    status: string;
-    location: { address: string; city: string; country: string };
-    note?: string;
-    internalNote?: string;
-    carrier?: string;
-    carrierReference?: string;
-}) => {
+export const logCheckpoint = async (id: string, payload: CheckpointPayload) => {
     const { data: envelope } = await api.post(`/api/shipments/${id}/tracking`, payload);
     return envelope.data;
 };
@@ -202,4 +192,47 @@ export const searchCustomers = async (query: string) => {
                 .some((field: string) => field.toLowerCase().includes(searchValue));
         })
         : [];
+};
+
+// ═══════════════════════════════════════════════════
+// BATCH UPLOAD endpoints (Stages 1, 2, 3)
+// ═══════════════════════════════════════════════════
+
+/**
+ * Stage 1: China Intake
+ * POST /api/batches/intake
+ */
+export const uploadBatchIntake = async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const { data: envelope } = await api.post('/api/batches/intake', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' } // Re-enabling but will monitor for Network Error
+    });
+    return envelope.data;
+};
+
+/**
+ * Stage 2: China Departure (Shipped)
+ * POST /api/batches/shipped
+ */
+export const uploadBatchShipped = async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const { data: envelope } = await api.post('/api/batches/shipped', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return envelope.data;
+};
+
+/**
+ * Stage 3: Ghana Arrival
+ * POST /api/batches/arrived
+ */
+export const uploadBatchArrived = async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const { data: envelope } = await api.post('/api/batches/arrived', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return envelope.data;
 };

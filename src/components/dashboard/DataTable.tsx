@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback } from "react";
 import { ChevronRight, ChevronLeft, Search, Filter, Download } from "lucide-react";
 
 interface Column {
@@ -12,6 +12,15 @@ interface DataTableProps {
     data: any[];
     onRowClick?: (item: any) => void;
     isLoading?: boolean;
+    searchValue?: string;
+    onSearchChange?: (value: string) => void;
+    pagination?: {
+        total: number;
+        page: number;
+        limit: number;
+        pages: number;
+    };
+    onPageChange?: (page: number) => void;
 }
 
 const DataTable: React.FC<DataTableProps> = ({
@@ -19,7 +28,48 @@ const DataTable: React.FC<DataTableProps> = ({
     data,
     onRowClick,
     isLoading = false,
+    searchValue = "",
+    onSearchChange,
+    pagination,
+    onPageChange,
 }) => {
+    const startRange = pagination ? (pagination.page - 1) * pagination.limit + 1 : 1;
+    const endRange = pagination ? Math.min(pagination.page * pagination.limit, pagination.total) : data.length;
+
+    /** Build a CSV from visible columns + current page data and trigger download */
+    const handleExport = useCallback(() => {
+        if (data.length === 0) return;
+
+        // Skip columns that are purely interactive (e.g. "Actions")
+        const exportableCols = columns.filter(
+            (c) => !['_id', 'id', 'actions'].includes(c.accessor.toLowerCase()) && c.header.toLowerCase() !== 'actions'
+        );
+
+        const escape = (val: any): string => {
+            if (val == null) return '';
+            const str = String(val).replace(/"/g, '""');
+            return str.includes(',') || str.includes('"') || str.includes('\n') ? `"${str}"` : str;
+        };
+
+        const header = exportableCols.map((c) => escape(c.header)).join(',');
+        const rows = data.map((item) =>
+            exportableCols.map((c) => escape(item[c.accessor] ?? '')).join(',')
+        );
+
+        const csv = [header, ...rows].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+
+        const today = new Date().toISOString().slice(0, 10);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `shipments_export_${today}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }, [columns, data]);
+
     return (
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
             {/* Table Header / Actions */}
@@ -28,15 +78,18 @@ const DataTable: React.FC<DataTableProps> = ({
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
                     <input 
                         type="text" 
-                        placeholder="Search records..." 
+                        placeholder="Search tracking #, city, or description..." 
+                        value={searchValue}
+                        onChange={(e) => onSearchChange?.(e.target.value)}
                         className="w-full pl-12 pr-4 py-2.5 bg-white border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#039B81]/20 focus:border-[#039B81]/50 transition-all font-medium"
                     />
                 </div>
                 <div className="flex items-center gap-2">
-                    <button className="p-2.5 bg-white border border-slate-100 rounded-xl hover:bg-slate-50 transition-colors text-slate-500">
-                        <Filter size={18} />
-                    </button>
-                    <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-100 rounded-xl hover:bg-slate-50 transition-colors text-slate-700 font-bold text-xs uppercase tracking-widest">
+                    <button
+                        onClick={handleExport}
+                        disabled={data.length === 0}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-100 rounded-xl hover:bg-slate-50 hover:border-[#039B81]/30 hover:text-[#039B81] transition-all text-slate-700 font-bold text-xs uppercase tracking-widest disabled:opacity-30 disabled:pointer-events-none"
+                    >
                         <Download size={18} />
                         Export
                     </button>
@@ -88,14 +141,24 @@ const DataTable: React.FC<DataTableProps> = ({
                 </table>
             </div>
 
-            {/* Pagination Placeholder */}
+            {/* Pagination */}
             <div className="px-8 py-4 border-t border-slate-50 flex items-center justify-between bg-slate-50/10">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Showing 1 to {data.length} of {data.length} entries</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    Showing {data.length > 0 ? startRange : 0} to {endRange} of {pagination?.total || data.length} entries
+                </span>
                 <div className="flex items-center gap-1">
-                    <button className="p-2 bg-white border border-slate-100 rounded-lg text-slate-300 disabled:opacity-30" disabled>
+                    <button 
+                        onClick={() => onPageChange?.(pagination!.page - 1)}
+                        disabled={!pagination || pagination.page <= 1}
+                        className="p-2 bg-white border border-slate-100 rounded-lg text-slate-400 disabled:opacity-30 hover:bg-slate-50 transition-colors"
+                    >
                         <ChevronLeft size={16} />
                     </button>
-                    <button className="p-2 bg-white border border-slate-100 rounded-lg text-slate-300 disabled:opacity-30" disabled>
+                    <button 
+                        onClick={() => onPageChange?.(pagination!.page + 1)}
+                        disabled={!pagination || pagination.page >= pagination.pages}
+                        className="p-2 bg-white border border-slate-100 rounded-lg text-slate-400 disabled:opacity-30 hover:bg-slate-50 transition-colors"
+                    >
                         <ChevronRight size={16} />
                     </button>
                 </div>
