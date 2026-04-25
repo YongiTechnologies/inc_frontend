@@ -2,6 +2,8 @@ import React from "react";
 import { Ship, Plane, Package, ArrowRight, Calendar, Clock } from "lucide-react";
 import Link from "next/link";
 
+// containerRef is intentionally excluded from this component.
+// It is staff-only data (physical container number). Do not add it here.
 interface ShipmentCardProps {
     id: string;
     trackingNumber: string;

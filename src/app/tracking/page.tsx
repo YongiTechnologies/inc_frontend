@@ -127,7 +127,7 @@ function TrackingContent() {
                                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
                                     <div>
                                         <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Tracking Number</p>
-                                        <p className="text-2xl font-black text-slate-800 tracking-tight">{shipment.trackingNumber}</p>
+                                        <p className="text-2xl font-black text-slate-800 tracking-tight">{shipment.waybillNo || shipment.trackingNumber}</p>
                                     </div>
                                     <div className="flex items-center gap-2 px-4 py-2 bg-[#039B81]/10 rounded-xl justify-center">
                                         <div className="w-2 h-2 bg-[#039B81] rounded-full animate-pulse" />
@@ -138,11 +138,11 @@ function TrackingContent() {
                                 <div className="grid md:grid-cols-4 gap-4">
                                     <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Origin</p>
-                                        <p className="font-semibold text-sm text-slate-800">{formatLocation(shipment.origin)}</p>
+                                        <p className="font-semibold text-sm text-slate-800">{formatLocation(shipment.origin) || shipment.originCity || "N/A"}</p>
                                     </div>
                                     <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Destination</p>
-                                        <p className="font-semibold text-sm text-slate-800">{formatLocation(shipment.destination)}</p>
+                                        <p className="font-semibold text-sm text-slate-800">{formatLocation(shipment.destination) || shipment.destinationCity || "N/A"}</p>
                                     </div>
                                     <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Est. Delivery</p>

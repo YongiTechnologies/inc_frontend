@@ -88,3 +88,16 @@ export const unassignGpsDevice = async (deviceId: string) => {
     const { data: envelope } = await api.post(`/api/admin/devices/${deviceId}/unassign`);
     return envelope.data;
 };
+
+// ═══════════════════════════════════════════════════
+// ADMIN - Maintenance
+// ═══════════════════════════════════════════════════
+
+/**
+ * Trigger database cleanup (admin only)
+ * POST /api/admin/cleanup
+ */
+export const triggerCleanup = async () => {
+    const { data: envelope } = await api.post('/api/admin/cleanup');
+    return envelope.data;
+};

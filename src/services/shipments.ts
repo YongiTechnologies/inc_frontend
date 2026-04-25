@@ -22,10 +22,10 @@ export const getPublicTracking = async (trackingNumber: string) => {
 
 /**
  * Customers: See only your own shipments (paginated)
- * GET /api/shipments/mine
+ * GET /api/batch-shipments/mine
  */
 export const getMyShipments = async (params: Record<string, any> = {}) => {
-    const { data: envelope } = await api.get('/api/shipments/mine', { params });
+    const { data: envelope } = await api.get('/api/batch-shipments/mine', { params });
     return envelope.data;
 };
 

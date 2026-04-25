@@ -38,7 +38,7 @@ export interface ShipmentItem {
 }
 
 export interface NewShipmentPayload {
-    trackingNumber: string;
+    waybillNo: string;
     customerId: string;
     origin: Location;
     destination: Location;

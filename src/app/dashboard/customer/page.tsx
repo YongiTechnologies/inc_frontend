@@ -1,18 +1,17 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-
 import Navbar from "@/components/common/Navbar";
 import StatsWidget from "@/components/dashboard/StatsWidget";
 import ShipmentCard from "@/components/dashboard/ShipmentCard";
-import { Package, Truck, CheckCircle, Clock, Search, Filter, Power, RefreshCw } from "lucide-react";
+import { Package, Truck, CheckCircle, Clock, Search, Power, RefreshCw } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { getMyShipments, getCustomerStats } from "@/services/shipments";
 import { useAuth } from "@/context/AuthContext";
 import ProtectedRoute from "@/components/common/ProtectedRoute";
 
+// containerRef (physical container number) is not rendered anywhere in this
+// component. It is excluded at the API layer via PUBLIC_ITEM_SELECT.
 export default function CustomerDashboard() {
-  const router = useRouter();
   const { logout, user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [shipments, setShipments] = useState<any[]>([]);
@@ -31,8 +30,10 @@ export default function CustomerDashboard() {
         getCustomerStats()
       ]);
       
-      // API returns { shipments, pagination }
-      const items = Array.isArray(shipmentsData) ? shipmentsData : shipmentsData?.shipments || shipmentsData?.items || [];
+      // API returns { total, grouped, pagination } from /api/batch-shipments/mine
+      const items = Array.isArray(shipmentsData)
+        ? shipmentsData
+        : shipmentsData?.grouped || shipmentsData?.items || shipmentsData?.shipments || [];
       setShipments(items);
       setStats(statsData);
     } catch (error) {
@@ -182,19 +183,19 @@ export default function CustomerDashboard() {
                       if (!searchQuery) return true;
                       const q = searchQuery.toLowerCase();
                       return (
-                        s.trackingNumber?.toLowerCase().includes(q) ||
+                        (s.waybillNo || s.trackingNumber)?.toLowerCase().includes(q) ||
                         s.description?.toLowerCase().includes(q) ||
-                        s.destination?.city?.toLowerCase().includes(q)
+                        (s.destinationCity || s.destination?.city)?.toLowerCase().includes(q)
                       );
                     })
                     .map((shipment) => (
                       <ShipmentCard
                         key={shipment._id || shipment.id}
                         id={shipment._id || shipment.id}
-                        trackingNumber={shipment.trackingNumber}
+                        trackingNumber={shipment.waybillNo || shipment.trackingNumber}
                         status={shipment.status}
-                        origin={`${shipment.origin?.city || ""}, ${shipment.origin?.country || ""}`}
-                        destination={`${shipment.destination?.city || ""}, ${shipment.destination?.country || ""}`}
+                        origin={shipment.origin ? `${shipment.origin.city || ""}, ${shipment.origin.country || ""}` : (shipment.originCity || "N/A")}
+                        destination={shipment.destination ? `${shipment.destination.city || ""}, ${shipment.destination.country || ""}` : (shipment.destinationCity || "N/A")}
                         estimatedDelivery={shipment.estimatedDelivery}
                         description={shipment.description}
                       />

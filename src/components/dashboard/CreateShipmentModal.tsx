@@ -11,7 +11,7 @@ interface CreateShipmentModalProps {
 
 export default function CreateShipmentModal({ isOpen, onClose, onSuccess }: CreateShipmentModalProps) {
     const [formData, setFormData] = useState({
-        trackingNumber: "",
+        waybillNo: "",
         customerId: "",
         customerSearch: "",
         description: "",
@@ -86,7 +86,7 @@ export default function CreateShipmentModal({ isOpen, onClose, onSuccess }: Crea
 
         try {
             await createShipment({
-                trackingNumber: formData.trackingNumber,
+                waybillNo: formData.waybillNo,
                 customerId: formData.customerId,
                 origin: {
                     address: formData.originAddress,
@@ -136,8 +136,8 @@ export default function CreateShipmentModal({ isOpen, onClose, onSuccess }: Crea
                     {/* Tracking & Customer */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Tracking Number <span className="text-red-500">*</span></label>
-                            <input required value={formData.trackingNumber} onChange={(e) => setFormData({...formData, trackingNumber: e.target.value})}
+                            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">Waybill / Job Number <span className="text-red-500">*</span></label>
+                            <input required value={formData.waybillNo} onChange={(e) => setFormData({...formData, waybillNo: e.target.value})}
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#039B81]/20 transition-all text-sm"
                                 placeholder="GH-INC-001" minLength={3} maxLength={50} />
                         </div>

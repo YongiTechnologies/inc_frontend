@@ -11,7 +11,6 @@ const services = [
 
 const quickLinks = [
     { name: "About Us", href: "/about" },
-    { name: "Container Loadings", href: "/container-loadings" },
     { name: "Get Quote", href: "/contact" },
     { name: "Terms & Conditions", href: "/terms" },
     { name: "Privacy Policy", href: "/privacy" },
