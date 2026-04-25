@@ -30,6 +30,7 @@ export const getMyShipments = async (params: Record<string, any> = {}) => {
 /**
  * Employee / Admin: Paginated list of all shipments with filters
  * GET /api/shipments?page=&limit=&status=&search=
+ * Note: This queries the original Shipment model (individual shipments)
  */
 export const getAllShipments = async (params: Record<string, any> = {}) => {
     const { data: envelope } = await api.get('/api/shipments', { params });
@@ -39,6 +40,16 @@ export const getAllShipments = async (params: Record<string, any> = {}) => {
         return { items: payload.shipments, pagination: payload.pagination };
     }
     return payload;
+};
+
+/**
+ * Employee / Admin: Get all batch shipment items (from Excel uploads)
+ * GET /api/shipments/all
+ * Note: This queries the ShipmentItem model (batch system)
+ */
+export const getAllBatchShipments = async (params: Record<string, any> = {}) => {
+    const { data: envelope } = await api.get('/api/shipments/all', { params });
+    return envelope.data;
 };
 
 /**

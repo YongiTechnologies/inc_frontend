@@ -11,7 +11,7 @@ import UpdateStatusModal from "@/components/dashboard/UpdateStatusModal";
 import { Ship, CheckCircle, Clock, Plus, Power } from "lucide-react";
 import { useState, useEffect } from "react";
 import Button from "@/components/common/Button";
-import { getAllShipments, getEmployeeStats } from "@/services/shipments";
+import { getAllBatchShipments, getEmployeeStats } from "@/services/shipments";
 import { useAuth } from "@/context/AuthContext";
 import ProtectedRoute from "@/components/common/ProtectedRoute";
 
@@ -29,8 +29,8 @@ export default function EmployeeDashboard() {
     const fetchShipments = async () => {
         setIsLoading(true);
         try {
-            const data = await getAllShipments();
-            // API returns { items, pagination } or might be an array
+            const data = await getAllBatchShipments();
+            // API returns { items, pagination }
             setShipments(Array.isArray(data) ? data : (data?.items || []));
         } catch (error) {
             console.error("Failed to fetch shipments:", error);
