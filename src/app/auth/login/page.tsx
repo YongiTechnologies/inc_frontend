@@ -10,7 +10,7 @@ import AuthSlider from "@/components/common/AuthSlider";
 import Image from "next/image";
 import { phoneCheck, phoneLogin, phoneSetPassword, phoneSignup } from "@/services/auth";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL;
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 // ─── Shared helpers ────────────────────────────────────────────────────────────
 function useRedirectAfterLogin() {

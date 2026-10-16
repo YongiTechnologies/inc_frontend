@@ -8,7 +8,7 @@ import {
 // Plain client for the public v2 tracking endpoints — no auth interceptors, so
 // a logged-out visitor's request never triggers a token refresh.
 const publicApi = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_URL,
+    baseURL: process.env.NEXT_PUBLIC_API_URL || "",
     headers: { 'Content-Type': 'application/json' },
 });
 

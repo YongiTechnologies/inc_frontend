@@ -4,7 +4,7 @@ import api from "./api";
 // Plain axios instance for public endpoints — bypasses the auth token refresh
 // interceptors so unauthenticated visitors can still load container data.
 const publicApi = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_URL,
+    baseURL: process.env.NEXT_PUBLIC_API_URL || "",
     headers: { "Content-Type": "application/json" },
 });
 
