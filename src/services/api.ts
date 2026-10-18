@@ -135,8 +135,11 @@ export const getAccessTokenTimeToExpiry = (): number | null => {
     return exp === null ? null : exp * 1000 - Date.now();
 };
 
+// With NEXT_PUBLIC_API_URL unset, calls go to this site's own /api, which
+// netlify.toml proxies to the backend, so the refresh cookie is first-party.
+// Set it (e.g. http://localhost:5000) only to call a backend directly.
 const api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_URL,
+    baseURL: process.env.NEXT_PUBLIC_API_URL || "",
     withCredentials: true, // Crucial for sending httpOnly refresh cookies
     headers: {
         "Content-Type": "application/json",
