@@ -3,6 +3,6 @@
 # cross-site kind). Change the host if the backend site gets another name.
 [[redirects]]
   from = "/api/*"
-  to = "https://clinette-api.netlify.app/api/:splat"
+  to = "https://clinette-backend.netlify.app/api/:splat"
   status = 200
   force = true
