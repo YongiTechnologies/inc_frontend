@@ -6,6 +6,22 @@ import { validateSheet, uploadSheet, type UploadPreview } from "@/services/parce
 import { STAGE_META } from "./parcelUi";
 import type { Stage } from "@/services/parcels";
 
+type UploadError = { response?: { status?: number; data?: { contentDuplicate?: boolean; message?: string } } };
+
+// The server's own reason when it gave one; otherwise say what kind of failure
+// it was. A bare "Upload failed." left staff refreshing to find out whether the
+// sheet had gone in.
+function uploadErrorMessage(e: unknown, fallback: string): string {
+  const err = e as UploadError;
+  if (err.response?.data?.message) return err.response.data.message;
+  const status = err.response?.status;
+  if (!status) return "Couldn't reach the server. Check your internet connection and try again.";
+  if (status === 401) return "Your session has ended. Please sign in again, then retry.";
+  if (status === 413) return "That file is too large. The limit is 10 MB.";
+  if (status >= 502 && status <= 504) return "The server took too long to answer. Check the Uploads tab before trying again: the sheet may already be saved.";
+  return `${fallback} (error ${status})`;
+}
+
 /**
  * Staff upload for any stage sheet. The stage is detected from the file, not
  * chosen — we validate first (a no-write preview), then let the user confirm.
@@ -28,8 +44,7 @@ export default function UploadSheetModal({ onClose, onUploaded }: { onClose: () 
     try {
       setPreview(await validateSheet(f));
     } catch (e: unknown) {
-      const err = e as { response?: { data?: { message?: string } } };
-      setError(err.response?.data?.message || "Could not read that file.");
+      setError(uploadErrorMessage(e, "Could not read that file."));
     } finally { setBusy(false); }
   };
 
@@ -41,12 +56,12 @@ export default function UploadSheetModal({ onClose, onUploaded }: { onClose: () 
       setDone(`${r.stage} sheet ingested — ${r.parcelsWritten} parcels updated`);
       onUploaded();
     } catch (e: unknown) {
-      const err = e as { response?: { status?: number; data?: { contentDuplicate?: boolean; message?: string } } };
+      const err = e as UploadError;
       if (err.response?.status === 409) {
         setError(err.response.data?.message
           || (err.response.data?.contentDuplicate ? "A sheet with the same contents is already uploaded." : "This exact file has already been uploaded."));
       } else {
-        setError(err.response?.data?.message || "Upload failed.");
+        setError(uploadErrorMessage(e, "Upload failed."));
       }
     } finally { setBusy(false); }
   };

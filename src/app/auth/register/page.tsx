@@ -10,6 +10,9 @@ import AuthSlider from "@/components/common/AuthSlider";
 import Image from "next/image";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+// Google sign-in needs a Google OAuth client on the backend; hidden unless
+// NEXT_PUBLIC_GOOGLE_AUTH=on at build time.
+const GOOGLE_AUTH = process.env.NEXT_PUBLIC_GOOGLE_AUTH === "on";
 
 export default function RegisterPage() {
     const [name, setName] = useState("");
@@ -185,6 +188,7 @@ export default function RegisterPage() {
                         </Button>
                     </form>
 
+                    {GOOGLE_AUTH && (<>
                     {/* Divider */}
                     <div className="flex items-center gap-4 my-6">
                         <div className="flex-1 h-px bg-gray-200" />
@@ -206,6 +210,7 @@ export default function RegisterPage() {
                         </svg>
                         Sign up with Google
                     </button>
+                    </>)}
 
                     <div className="mt-10 text-center">
                         <p className="text-gray-500 text-sm font-medium">

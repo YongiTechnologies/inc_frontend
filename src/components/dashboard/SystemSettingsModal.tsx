@@ -118,7 +118,9 @@ export default function SystemSettingsModal({ onClose }: SystemSettingsModalProp
             accessor: "performedBy",
             render: (item: any) => {
                 const user = item.performedBy;
-                if (!user) return 'System';
+                // Every entry records who did it, so a missing user means the
+                // account was deleted since.
+                if (!user) return 'Deleted user';
                 return `${user.name || user.email || 'Unknown'} (${user.role || 'No role'})`;
             }
         },

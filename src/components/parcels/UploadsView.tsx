@@ -19,15 +19,22 @@ export default function UploadsView({ onChanged }: { onChanged?: () => void }) {
   const [reverting, setReverting] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // A reverted sheet is gone from the parcels, so it's hidden here too unless
+  // staff ask for the history (status:'' includes reverted ones).
+  const [showReverted, setShowReverted] = useState(false);
 
   const load = useCallback((p: number) => {
     setLoading(true);
-    // status:'' → include reverted ones too, so the history is visible.
-    listUploads({ status: "", page: p, limit: PAGE_SIZE })
-      .then((d) => { setFiles(d.files || []); setTotal(d.total || 0); setError(null); })
+    listUploads({ status: showReverted ? "" : "active", page: p, limit: PAGE_SIZE })
+      .then((d) => {
+        // Reverting the last sheet on the last page empties it; step back
+        // rather than show "no uploads" while earlier pages still have some.
+        if (!(d.files || []).length && p > 1) { setPage(p - 1); return; }
+        setFiles(d.files || []); setTotal(d.total || 0); setError(null);
+      })
       .catch(() => setError("Couldn't load uploads."))
       .finally(() => setLoading(false));
-  }, []);
+  }, [showReverted]);
 
   useEffect(() => { load(page); }, [load, page]);
 
@@ -55,15 +62,21 @@ export default function UploadsView({ onChanged }: { onChanged?: () => void }) {
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
         <div>
           <h3 className="font-bold text-slate-800">Uploads</h3>
-          <p className="text-xs text-slate-400 font-medium mt-0.5">Each sheet you upload is one batch. Revert to undo a wrong file. {total} total.</p>
+          <p className="text-xs text-slate-400 font-medium mt-0.5">Each sheet you upload is one batch. Revert to undo a wrong file. {total} {showReverted ? "total" : "active"}.</p>
         </div>
-        <button onClick={() => load(page)} className="p-2 rounded-lg text-slate-400 hover:text-primary hover:bg-slate-50" title="Refresh"><RefreshCw size={16} /></button>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 cursor-pointer select-none">
+            <input type="checkbox" checked={showReverted} onChange={(e) => { setShowReverted(e.target.checked); setPage(1); }} />
+            Show reverted
+          </label>
+          <button onClick={() => load(page)} className="p-2 rounded-lg text-slate-400 hover:text-primary hover:bg-slate-50" title="Refresh"><RefreshCw size={16} /></button>
+        </div>
       </div>
 
       {error && <div className="px-5 py-3 text-sm text-rose-600 bg-rose-50">{error}</div>}
 
       {files.length === 0 ? (
-        <div className="py-16 text-center text-slate-400 font-medium text-sm">No uploads yet.</div>
+        <div className="py-16 text-center text-slate-400 font-medium text-sm">{showReverted ? "No uploads yet." : "No active uploads."}</div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

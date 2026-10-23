@@ -7,10 +7,10 @@ import { useState, useEffect } from "react";
 import Navbar from "@/components/common/Navbar";
 import StatsWidget from "@/components/dashboard/StatsWidget";
 import DataTable from "@/components/dashboard/DataTable";
-import { Users, Shield, TrendingUp, Package, Plus, UserPlus, Settings, Power, X, Eye, EyeOff, Radar } from "lucide-react";
+import { Users, Shield, TrendingUp, Package, Plus, UserPlus, Settings, Power, X, Eye, EyeOff, Radar, Copy, Check } from "lucide-react";
 import Button from "@/components/common/Button";
 import { getAdminDashboardStats } from "@/services/shipments";
-import { getUsers, createUser, updateUser } from "@/services/admin";
+import { getUsers, createUser, updateUser, resetUserPassword } from "@/services/admin";
 import { useAuth } from "@/context/AuthContext";
 import SystemSettingsModal from "@/components/dashboard/SystemSettingsModal";
 import ProtectedRoute from "@/components/common/ProtectedRoute";
@@ -24,6 +24,7 @@ export default function AdminDashboard() {
     const [usersLoading, setUsersLoading] = useState(true);
     const [showCreateUserModal, setShowCreateUserModal] = useState(false);
     const [showSettingsModal, setShowSettingsModal] = useState(false);
+    const [resetUser, setResetUser] = useState<any>(null);
     const [search, setSearch] = useState("");
     const [roleFilter, setRoleFilter] = useState("");
     const [page, setPage] = useState(1);
@@ -122,6 +123,12 @@ export default function AdminDashboard() {
                         className={`font-bold text-[10px] uppercase hover:underline ${item.isActive ? 'text-red-600' : 'text-green-600'}`}
                     >
                         {item.isActive ? 'Suspend' : 'Activate'}
+                    </button>
+                    <button
+                        onClick={() => setResetUser(item)}
+                        className="font-bold text-[10px] uppercase hover:underline text-[#039B81]"
+                    >
+                        Reset password
                     </button>
                 </div>
             )
@@ -242,12 +249,128 @@ export default function AdminDashboard() {
             )}
 
             {showSettingsModal && (
-                <SystemSettingsModal 
-                    onClose={() => setShowSettingsModal(false)} 
+                <SystemSettingsModal
+                    onClose={() => setShowSettingsModal(false)}
                 />
+            )}
+
+            {resetUser && (
+                <ResetPasswordModal user={resetUser} onClose={() => setResetUser(null)} />
             )}
         </div>
         </ProtectedRoute>
+    );
+}
+
+// ── Inline ResetPasswordModal ──
+// Passwords are only reset by an admin: generate a temporary one to read out to
+// the user, or type the one they asked for.
+function ResetPasswordModal({ user, onClose }: { user: any; onClose: () => void }) {
+    const [mode, setMode] = useState<'generate' | 'custom'>('generate');
+    const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [result, setResult] = useState<{ temporaryPassword?: string } | null>(null);
+    const [copied, setCopied] = useState(false);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsLoading(true);
+        setError('');
+        try {
+            setResult(await resetUserPassword(user._id || user.id, mode === 'custom' ? password : undefined));
+        } catch (err: any) {
+            setError(err.response?.data?.errors?.[0] || err.response?.data?.message || 'Failed to reset password.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleCopy = async () => {
+        if (!result?.temporaryPassword) return;
+        try { await navigator.clipboard.writeText(result.temporaryPassword); setCopied(true); } catch { /* clipboard blocked; it can still be selected */ }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[100] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden">
+                <div className="flex items-center justify-between p-6 border-b border-slate-100">
+                    <h2 className="text-xl font-black text-slate-800 tracking-tight">Reset Password</h2>
+                    <button onClick={onClose} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                        <X size={20} />
+                    </button>
+                </div>
+
+                <div className="p-6 space-y-4">
+                    <div className="p-3 bg-slate-50 rounded-xl">
+                        <p className="text-sm font-black text-slate-800">{user.name}</p>
+                        <p className="text-xs text-slate-500">{user.email}{user.phone ? ` · ${user.phone}` : ''}</p>
+                    </div>
+                    {user.isActive === false && (
+                        <p className="p-3 bg-amber-50 text-amber-700 text-xs font-medium rounded-lg">
+                            This account is suspended. A new password won&apos;t let them in until you Activate the account.
+                        </p>
+                    )}
+
+                    {result ? (
+                        <>
+                            {result.temporaryPassword ? (
+                                <div className="space-y-2">
+                                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Temporary password</p>
+                                    <div className="flex items-center gap-2">
+                                        <code className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-lg font-mono font-bold text-slate-800 tracking-wider select-all">
+                                            {result.temporaryPassword}
+                                        </code>
+                                        <button type="button" onClick={handleCopy} title="Copy" className="p-3 bg-[#039B81]/10 text-[#039B81] hover:bg-[#039B81]/20 rounded-xl transition-colors">
+                                            {copied ? <Check size={18} /> : <Copy size={18} />}
+                                        </button>
+                                    </div>
+                                    <p className="text-xs text-amber-700 font-medium">Give this to the user now. It won&apos;t be shown again.</p>
+                                </div>
+                            ) : (
+                                <p className="p-3 bg-green-50 text-green-700 text-sm font-medium rounded-lg">Password updated.</p>
+                            )}
+                            <p className="text-xs text-slate-500">They&apos;ve been signed out everywhere and can sign in with the new password.</p>
+                            <Button type="button" onClick={onClose} className="w-full py-3.5 text-xs font-black uppercase tracking-widest">Done</Button>
+                        </>
+                    ) : (
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            {error && <div className="p-3 bg-red-50 text-red-600 text-sm font-medium rounded-lg">{error}</div>}
+                            <div className="space-y-2">
+                                <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 cursor-pointer">
+                                    <input type="radio" checked={mode === 'generate'} onChange={() => setMode('generate')} />
+                                    Generate a temporary password
+                                </label>
+                                <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 cursor-pointer">
+                                    <input type="radio" checked={mode === 'custom'} onChange={() => setMode('custom')} />
+                                    Set a password myself
+                                </label>
+                            </div>
+                            {mode === 'custom' && (
+                                <div className="relative flex items-center">
+                                    <input required type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)}
+                                        className="w-full px-4 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#039B81]/20 transition-all text-sm font-medium"
+                                        placeholder="Min. 8 characters" minLength={8} autoFocus />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute right-3 text-slate-400 hover:text-[#039B81] transition-colors"
+                                    >
+                                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                    </button>
+                                </div>
+                            )}
+                            <p className="text-xs text-slate-500">This signs the user out of every device.</p>
+                            <div className="pt-2 flex gap-4">
+                                <Button type="button" variant="outline" onClick={onClose} className="w-1/2 py-3.5 text-xs font-black uppercase tracking-widest bg-white">Cancel</Button>
+                                <Button type="submit" isLoading={isLoading} className="w-1/2 py-3.5 text-xs font-black uppercase tracking-widest shadow-lg shadow-[#039B81]/20">Reset Password</Button>
+                            </div>
+                        </form>
+                    )}
+                </div>
+            </div>
+        </div>
     );
 }
 

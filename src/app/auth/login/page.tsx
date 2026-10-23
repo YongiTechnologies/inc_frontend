@@ -8,9 +8,12 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import AuthSlider from "@/components/common/AuthSlider";
 import Image from "next/image";
-import { phoneCheck, phoneLogin, phoneSetPassword, phoneSignup } from "@/services/auth";
+import { phoneCheck, phoneLogin, phoneSignup } from "@/services/auth";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+// Google sign-in needs a Google OAuth client on the backend; hidden unless
+// NEXT_PUBLIC_GOOGLE_AUTH=on at build time.
+const GOOGLE_AUTH = process.env.NEXT_PUBLIC_GOOGLE_AUTH === "on";
 
 // ─── Shared helpers ────────────────────────────────────────────────────────────
 function useRedirectAfterLogin() {
@@ -130,12 +133,14 @@ function EmailLoginForm() {
             <div>
                 <PasswordInput value={password} onChange={setPassword} />
                 <div className="flex justify-end mt-2">
-                    <Link href="#" className="text-xs font-bold text-[#039B81] hover:underline">Forgot Password?</Link>
+                    {/* Passwords are reset by an admin, so a forgotten one goes through us. */}
+                    <Link href="/contact" className="text-xs font-bold text-[#039B81] hover:underline">Forgot password? Contact us</Link>
                 </div>
             </div>
             <Button type="submit" isLoading={isLoading} className="w-full py-4 text-xs font-black uppercase tracking-[0.2em] shadow-sm shadow-[#039B81]/20">
                 Sign In
             </Button>
+            {GOOGLE_AUTH && (<>
             <div className="flex items-center gap-4">
                 <div className="flex-1 h-px bg-gray-200" />
                 <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Or</span>
@@ -154,6 +159,7 @@ function EmailLoginForm() {
                 </svg>
                 Continue with Google
             </button>
+            </>)}
         </form>
     );
 }
@@ -162,7 +168,7 @@ function EmailLoginForm() {
 type PhoneStep =
     | "enter-phone"          // Step 1: just the phone input
     | "enter-password"       // Step 2a: account exists + has password
-    | "create-password"      // Step 2b: account exists, NO password → set one
+    | "no-password"          // Step 2b: account exists, NO password → contact us
     | "signup";              // Step 2c: no account → full sign-up
 
 function PhoneLoginForm() {
@@ -172,7 +178,6 @@ function PhoneLoginForm() {
     const [name, setName] = useState("");
     const [password, setPassword] = useState("");
     const [confirm, setConfirm] = useState("");
-    const [knownName, setKnownName] = useState<string | undefined>();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState("");
 
@@ -187,10 +192,8 @@ function PhoneLoginForm() {
             if (!result.exists) {
                 setStep("signup");
             } else if (!result.hasPassword) {
-                setKnownName(result.name);
-                setStep("create-password");
+                setStep("no-password");
             } else {
-                setKnownName(result.name);
                 setStep("enter-password");
             }
         } catch (err: any) {
@@ -209,22 +212,6 @@ function PhoneLoginForm() {
             loginWithToken(data);
         } catch (err: any) {
             setError(err.response?.data?.message || "Incorrect password.");
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleSetPassword = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (password !== confirm) { setError("Passwords do not match."); return; }
-        if (password.length < 8)  { setError("Password must be at least 8 characters."); return; }
-        setError("");
-        setIsLoading(true);
-        try {
-            const data = await phoneSetPassword(phone.trim(), password, name.trim() || undefined);
-            loginWithToken(data);
-        } catch (err: any) {
-            setError(err.response?.data?.message || "Could not set password. Try again.");
         } finally {
             setIsLoading(false);
         }
@@ -279,8 +266,7 @@ function PhoneLoginForm() {
                 {error && <ErrorBanner msg={error} />}
                 <div className="p-4 bg-[#039B81]/5 border border-[#039B81]/10 rounded-xl">
                     <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-0.5">Signing in as</p>
-                    <p className="text-sm font-black text-slate-800">{knownName || phone}</p>
-                    <p className="text-xs text-slate-400 font-mono mt-0.5">{phone}</p>
+                    <p className="text-sm font-black text-slate-800 font-mono">{phone}</p>
                 </div>
                 <PasswordInput value={password} onChange={setPassword} />
                 <Button type="submit" isLoading={isLoading} className="w-full py-4 text-xs font-black uppercase tracking-[0.2em] shadow-sm shadow-[#039B81]/20">
@@ -293,30 +279,29 @@ function PhoneLoginForm() {
         );
     }
 
-    // ── Step 2b: no password yet ──────────────────────────────────────────────
-    if (step === "create-password") {
+    // ── Step 2b: account has no password yet ──────────────────────────────────
+    // Setting one here needed only the phone number, so anyone who knew a
+    // customer's number could claim the account. An admin sets it instead.
+    if (step === "no-password") {
         return (
-            <form onSubmit={handleSetPassword} className="space-y-5">
-                {error && <ErrorBanner msg={error} />}
+            <div className="space-y-5">
                 <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl">
-                    <p className="text-xs font-black text-amber-700 uppercase tracking-widest mb-1">First time here?</p>
+                    <p className="text-xs font-black text-amber-700 uppercase tracking-widest mb-1">Almost there</p>
                     <p className="text-sm text-slate-600 font-medium">
-                        We found your shipments for <span className="font-black text-slate-800">{phone}</span>.
-                        Create a password to access your account.
+                        We found an account for <span className="font-black text-slate-800">{phone}</span>, but it
+                        doesn&apos;t have a password yet. Contact us and we&apos;ll set one up for you.
                     </p>
                 </div>
-                {!knownName && (
-                    <InputField label="Your Name" icon={User} value={name} onChange={setName} placeholder="e.g. Kwame Mensah" />
-                )}
-                <PasswordInput label="Create Password" value={password} onChange={setPassword} />
-                <PasswordInput label="Confirm Password" value={confirm} onChange={setConfirm} />
-                <Button type="submit" isLoading={isLoading} className="w-full py-4 text-xs font-black uppercase tracking-[0.2em] shadow-sm shadow-[#039B81]/20">
-                    Create Password &amp; Sign In
-                </Button>
+                <Link
+                    href="/contact"
+                    className="block w-full py-4 text-center text-xs font-black uppercase tracking-[0.2em] bg-[#039B81] text-white rounded-xl shadow-sm shadow-[#039B81]/20 hover:bg-[#027a65] transition-colors"
+                >
+                    Contact Us
+                </Link>
                 <button type="button" onClick={resetToPhone} className="w-full text-center text-xs font-bold text-gray-400 hover:text-[#039B81] transition-colors">
                     ← Use a different number
                 </button>
-            </form>
+            </div>
         );
     }
 
