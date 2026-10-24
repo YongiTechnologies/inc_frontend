@@ -40,5 +40,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Markdown files stay on this machine; they are not committed
+# Markdown files stay on this machine and are not committed, except the README
 *.md
+!/README.md
+
+# Local AI-assistant settings
+.claude/

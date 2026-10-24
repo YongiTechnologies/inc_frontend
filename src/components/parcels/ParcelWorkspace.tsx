@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Search, LayoutGrid, Container as ContainerIcon, PackageSearch, FlaskConical, UploadCloud, History } from "lucide-react";
+import { Search, LayoutGrid, Container as ContainerIcon, PackageSearch, CloudOff, UploadCloud, History } from "lucide-react";
 import { useParcels } from "@/hooks/useParcels";
 import { useDebounce } from "@/hooks/useDebounce";
 import { listParcels, type Parcel, type ParcelBucket } from "@/services/parcels";
@@ -25,7 +25,7 @@ const BUCKET_PREDICATE: Record<RibbonKey, (p: Parcel) => boolean> = {
 };
 
 export default function ParcelWorkspace() {
-  const { reconciliation, parcels, containers, loading, isDemo, reload } = useParcels();
+  const { reconciliation, parcels, containers, loading, loadError, reload } = useParcels();
   const [tab, setTab] = useState<Tab>("pipeline");
   const [bucket, setBucket] = useState<RibbonKey>("all");
   const [query, setQuery] = useState("");
@@ -89,10 +89,13 @@ export default function ParcelWorkspace() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {isDemo && (
-            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-full ring-1 ring-indigo-200">
-              <FlaskConical size={13} /> Sample data (July–August sheets)
-            </span>
+          {loadError && (
+            <button
+              onClick={reload}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600 bg-rose-50 px-3 py-1.5 rounded-full ring-1 ring-rose-200 hover:bg-rose-100"
+            >
+              <CloudOff size={13} /> Could not load parcels. Retry
+            </button>
           )}
           <button
             onClick={() => setShowUpload(true)}
