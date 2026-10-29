@@ -4,6 +4,29 @@
  */
 
 export const ACCESS_TOKEN_KEY = 'access_token';
+// Fallback store for the refresh token, used when the httpOnly cookie can't be
+// relied on (the API is on a different site, so the cookie is third-party and
+// the browser may drop it). Sent in the refresh request body.
+export const REFRESH_TOKEN_KEY = 'refresh_token';
+
+// ─── Session timeout ──────────────────────────────────────────────────────────
+//
+// Staff dashboards hold other people's shipment data on shared back-office
+// machines, so a staff session lapses after a spell of no use. Customers are
+// left alone — they see only their own parcels, and signing them out mid-visit
+// is friction with nothing to show for it.
+//
+// Keep SESSION_IDLE_MS in step with STAFF_IDLE_TIMEOUT_MINUTES on the backend,
+// which enforces the same window against the refresh token. The client warns
+// and signs out; the server is what actually makes it stick.
+export const SESSION_IDLE_MS = 30 * 60 * 1000;   // 30 minutes of no activity
+export const SESSION_WARN_MS = 2 * 60 * 1000;    // warn for the last 2 minutes
+export const SESSION_IDLE_ROLES = ['admin', 'employee'] as const;
+
+// Shared through localStorage so every open tab agrees on one clock: working in
+// one tab keeps the others alive, and signing out in one signs out all of them.
+export const LAST_ACTIVITY_KEY = 'session_last_activity';
+export const SESSION_ENDED_KEY = 'session_ended_at';
 
 export const SHIPMENT_STATUSES = {
     // Traditional flow
@@ -15,9 +38,11 @@ export const SHIPMENT_STATUSES = {
     DELIVERED: 'delivered',
     FAILED: 'failed',
     RETURNED: 'returned',
-    // Batch workflow
+    // Batch workflow — mirrors the ContainerLoading lifecycle
     IN_WAREHOUSE: 'in_warehouse',
     SHIPPED: 'shipped',
+    AT_PORT: 'at_port',
+    READY_FOR_PICKUP: 'ready_for_pickup',
     HELD: 'held',
 } as const;
 
@@ -32,7 +57,12 @@ export const STATUS_LABELS: Record<string, string> = {
     [SHIPMENT_STATUSES.RETURNED]: 'Returned',
     [SHIPMENT_STATUSES.IN_WAREHOUSE]: 'In Warehouse',
     [SHIPMENT_STATUSES.SHIPPED]: 'Shipped',
+    [SHIPMENT_STATUSES.AT_PORT]: 'At Tema Port',
+    [SHIPMENT_STATUSES.READY_FOR_PICKUP]: 'Ready for Pickup',
     [SHIPMENT_STATUSES.HELD]: 'On Hold',
+    // Manual status lifecycle (v2) — at_port / ready_for_pickup already covered above
+    received: 'Received',
+    loaded: 'Loaded',
 };
 
 export const STATUS_COLORS: Record<string, string> = {
@@ -46,7 +76,11 @@ export const STATUS_COLORS: Record<string, string> = {
     [SHIPMENT_STATUSES.RETURNED]: 'bg-orange-100 text-orange-700',
     [SHIPMENT_STATUSES.IN_WAREHOUSE]: 'bg-amber-100 text-amber-700',
     [SHIPMENT_STATUSES.SHIPPED]: 'bg-sky-100 text-sky-700',
+    [SHIPMENT_STATUSES.AT_PORT]: 'bg-orange-100 text-orange-700',
+    [SHIPMENT_STATUSES.READY_FOR_PICKUP]: 'bg-emerald-100 text-emerald-700',
     [SHIPMENT_STATUSES.HELD]: 'bg-teal-100 text-teal-700',
+    received: 'bg-amber-100 text-amber-700',
+    loaded: 'bg-orange-100 text-orange-700',
     default: 'bg-slate-100 text-slate-700',
 };
 

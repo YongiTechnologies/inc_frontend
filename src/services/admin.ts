@@ -45,6 +45,17 @@ export const updateUser = async (id: string, payload: {
     return envelope.data;
 };
 
+/**
+ * Reset a user's password (admin only). Leave `password` out to have the server
+ * generate a temporary one, returned once as `temporaryPassword`. Ends all of
+ * the user's sessions.
+ * POST /api/admin/users/{id}/reset-password
+ */
+export const resetUserPassword = async (id: string, password?: string): Promise<{ temporaryPassword?: string }> => {
+    const { data: envelope } = await api.post(`/api/admin/users/${id}/reset-password`, password ? { password } : {});
+    return envelope.data || {};
+};
+
 // ═══════════════════════════════════════════════════
 // ADMIN - Audit Logs
 // ═══════════════════════════════════════════════════
@@ -99,5 +110,17 @@ export const unassignGpsDevice = async (deviceId: string) => {
  */
 export const triggerCleanup = async () => {
     const { data: envelope } = await api.post('/api/admin/cleanup');
+    return envelope.data;
+};
+
+/**
+ * DESTRUCTIVE — permanently delete ALL operational data (shipment items,
+ * batches, container loadings). Admin only. Requires the exact confirm phrase.
+ * POST /api/admin/purge-operational-data
+ */
+export const PURGE_CONFIRM_PHRASE = "DELETE ALL DATA";
+
+export const purgeOperationalData = async (confirm: string) => {
+    const { data: envelope } = await api.post('/api/admin/purge-operational-data', { confirm });
     return envelope.data;
 };

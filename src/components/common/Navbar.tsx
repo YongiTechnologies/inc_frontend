@@ -6,12 +6,12 @@ import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { Menu, X, ArrowUpRight, Globe, TrendingUp, LogOut, LayoutDashboard } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { getTickerItems, TickerItem } from "@/utils/ticker";
+import { DEFAULT_TICKER_ITEMS, TickerItem } from "@/utils/ticker";
+import { getSettings } from "@/services/settings";
 
 const navLinks = [
     { name: "Home", href: "/" },
     { name: "About", href: "/about" },
-    { name: "Container Loadings", href: "/container-loadings" },
     { name: "Cost Calculator", href: "/calculator" },
     { name: "Shipping Address", href: "/address" },
     { name: "Contact", href: "/contact" },
@@ -21,24 +21,39 @@ const navLinks = [
 export default function Header() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
-    const [tickerItems, setTickerItems] = useState<TickerItem[]>([]);
+    const [tickerItems, setTickerItems] = useState<TickerItem[]>(DEFAULT_TICKER_ITEMS);
     const pathname = usePathname();
     const { user, isAuthenticated, logout } = useAuth();
 
     const isDashboard = pathname?.startsWith('/dashboard');
 
-    const dashboardHref = user?.role === "admin"
-        ? "/dashboard/admin"
-        : user?.role === "employee"
-            ? "/dashboard/employee"
-            : "/dashboard/customer";
+    // Staff (admin + employee) now work from the unified Parcel Console.
+    const dashboardHref = (user?.role === "admin" || user?.role === "employee")
+        ? "/parcels"
+        : "/dashboard/customer";
 
     useEffect(() => {
-        // Load ticker items on mount and whenever admin updates them
-        const load = () => setTickerItems(getTickerItems());
+        // Load ticker items from server settings on mount and whenever the
+        // admin saves changes elsewhere in this tab (ticker-updated).
+        // Persisted server-side so a change reaches every visitor, not just
+        // the admin's own browser.
+        let cancelled = false;
+        const load = async () => {
+            try {
+                const settings = await getSettings();
+                if (!cancelled && settings.tickerItems?.length) {
+                    setTickerItems(settings.tickerItems);
+                }
+            } catch {
+                // Keep whatever is currently shown (defaults on first load).
+            }
+        };
         load();
         window.addEventListener("ticker-updated", load);
-        return () => window.removeEventListener("ticker-updated", load);
+        return () => {
+            cancelled = true;
+            window.removeEventListener("ticker-updated", load);
+        };
     }, []);
 
     useEffect(() => {

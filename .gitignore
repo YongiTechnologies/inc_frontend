@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Markdown files stay on this machine and are not committed, except the README
+*.md
+!/README.md
+
+# Local AI-assistant settings
+.claude/

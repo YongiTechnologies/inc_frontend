@@ -75,11 +75,6 @@ export default function Footer() {
                         <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
                         <ul className="space-y-2">
                             <li>
-                                <Link href="/container-loadings" className="text-gray-300 hover:text-[#039B81] transition-colors">
-                                    Container Loadings
-                                </Link>
-                            </li>
-                            <li>
                                 <Link href="/address" className="text-gray-300 hover:text-[#039B81] transition-colors">
                                     Shipping Address
                                 </Link>
@@ -118,7 +113,7 @@ export default function Footer() {
                             </li>
                             <li className="flex items-center gap-3">
                                 <Mail size={18} className="text-[#039B81] flex-shrink-0" />
-                                <span className="text-gray-300">info@incshipping.com</span>
+                                <span className="text-gray-300">clinetteshipping@gmail.com</span>
                             </li>
                             <li className="flex items-center gap-3">
                                 <WhatsappIcon size={18} className="text-[#039B81] flex-shrink-0" />

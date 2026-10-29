@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Activity, Cpu, Settings, RefreshCw, ShieldCheck, Globe, Mail, DollarSign, Save, Check, Newspaper, Plus, Trash2, GripVertical, TrendingUp } from "lucide-react";
+import { X, Activity, Cpu, Settings, RefreshCw, ShieldCheck, Globe, Mail, DollarSign, Save, Check, Newspaper, Plus, Trash2, GripVertical, TrendingUp, AlertTriangle } from "lucide-react";
 import DataTable from "./DataTable";
 import Button from "@/components/common/Button";
-import { getAuditLogs, getGpsDevices, triggerCleanup } from "@/services/admin";
-import { getSettings, updateSettings, AppSettings } from "@/services/settings";
-import { getTickerItems, saveTickerItems, generateId, TickerItem, DEFAULT_TICKER_ITEMS } from "@/utils/ticker";
+import { getAuditLogs, getGpsDevices, triggerCleanup, purgeOperationalData, PURGE_CONFIRM_PHRASE } from "@/services/admin";
+import { getSettings, updateSettings, DEFAULT_SETTINGS, AppSettings } from "@/services/settings";
+import { generateId, TickerItem, DEFAULT_TICKER_ITEMS } from "@/utils/ticker";
 
 interface SystemSettingsModalProps {
     onClose: () => void;
@@ -21,17 +21,38 @@ export default function SystemSettingsModal({ onClose }: SystemSettingsModalProp
     const [loading, setLoading] = useState(false);
     const [cleanupResult, setCleanupResult] = useState<any>(null);
     const [cleanupLoading, setCleanupLoading] = useState(false);
-    const [rates, setRates] = useState<AppSettings>({ cbmRate: 230, usdToGhsRate: 15.2, minFeeUsd: 3 });
+    const [rates, setRates] = useState<AppSettings>(DEFAULT_SETTINGS);
     const [ratesSaving, setRatesSaving] = useState(false);
     const [ratesSaved, setRatesSaved] = useState(false);
     const [ratesError, setRatesError] = useState<string | null>(null);
-    const [tickerItems, setTickerItems] = useState<TickerItem[]>([]);
+    const [tickerItems, setTickerItems] = useState<TickerItem[]>(DEFAULT_TICKER_ITEMS);
+    const [tickerSaving, setTickerSaving] = useState(false);
     const [tickerSaved, setTickerSaved] = useState(false);
+    const [tickerError, setTickerError] = useState<string | null>(null);
 
     useEffect(() => {
-        getSettings().then(setRates).catch(() => {});
-        setTickerItems(getTickerItems());
+        getSettings().then((s) => {
+            setRates(s);
+            if (s.tickerItems?.length) setTickerItems(s.tickerItems);
+        }).catch(() => {});
     }, []);
+
+    const handleSaveTicker = async () => {
+        setTickerSaving(true);
+        setTickerError(null);
+        try {
+            const updated = await updateSettings({ tickerItems });
+            if (updated.tickerItems?.length) setTickerItems(updated.tickerItems);
+            setTickerSaved(true);
+            // Same-tab listeners (e.g. Navbar) re-fetch settings on this event.
+            window.dispatchEvent(new Event("ticker-updated"));
+            setTimeout(() => setTickerSaved(false), 2500);
+        } catch {
+            setTickerError("Failed to save. Please try again.");
+        } finally {
+            setTickerSaving(false);
+        }
+    };
 
     const handleSaveRates = async () => {
         setRatesSaving(true);
@@ -97,7 +118,9 @@ export default function SystemSettingsModal({ onClose }: SystemSettingsModalProp
             accessor: "performedBy",
             render: (item: any) => {
                 const user = item.performedBy;
-                if (!user) return 'System';
+                // Every entry records who did it, so a missing user means the
+                // account was deleted since.
+                if (!user) return 'Deleted user';
                 return `${user.name || user.email || 'Unknown'} (${user.role || 'No role'})`;
             }
         },
@@ -225,12 +248,10 @@ export default function SystemSettingsModal({ onClose }: SystemSettingsModalProp
                                 <TickerTab
                                     items={tickerItems}
                                     onChange={setTickerItems}
-                                    onSave={() => {
-                                        saveTickerItems(tickerItems);
-                                        setTickerSaved(true);
-                                        setTimeout(() => setTickerSaved(false), 2500);
-                                    }}
+                                    onSave={handleSaveTicker}
+                                    saving={tickerSaving}
                                     saved={tickerSaved}
+                                    error={tickerError}
                                 />
                             )}
                             {activeTab === 'config' && (
@@ -310,7 +331,7 @@ function PlatformConfigView({ onRunCleanup, cleanupLoading, cleanupResult, rates
                         <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Support Email</label>
                         <div className="relative">
                             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
-                            <input disabled className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-400 cursor-not-allowed" defaultValue="support@icshipping.com" title="Read-only — contact support to update" />
+                            <input disabled className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-400 cursor-not-allowed" defaultValue="clinetteshipping@gmail.com" title="Read-only — contact support to update" />
                         </div>
                     </div>
                     <p className="text-[10px] text-slate-400">These fields are read-only. Contact your system administrator to update branding settings.</p>
@@ -346,14 +367,21 @@ function PlatformConfigView({ onRunCleanup, cleanupLoading, cleanupResult, rates
 
             {/* Shipping Rates */}
             <div className="md:col-span-2 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-                <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-6 flex items-center gap-2">
+                <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-2 flex items-center gap-2">
                     <DollarSign size={16} className="text-[#039B81]" />
                     Shipping Rates
                 </h3>
-                <div className="grid sm:grid-cols-3 gap-4 mb-4">
+                <p className="text-[10px] text-slate-400 mb-6">
+                    CBM (&quot;CDM&quot;) rate charged per customer depends on their delivery location from the packing list.
+                    Accra is used when no location is set. Kumasi &amp; Takoradi share one rate; Tamale has its own.
+                </p>
+
+                {/* Per-location CBM rates */}
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Rate per CBM by Location (USD)</p>
+                <div className="grid sm:grid-cols-3 gap-4 mb-6">
                     <div>
                         <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
-                            Rate per CBM (USD)
+                            Accra / Default
                         </label>
                         <div className="relative">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span>
@@ -367,6 +395,41 @@ function PlatformConfigView({ onRunCleanup, cleanupLoading, cleanupResult, rates
                             />
                         </div>
                     </div>
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                            Kumasi &amp; Takoradi
+                        </label>
+                        <div className="relative">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span>
+                            <input
+                                type="number"
+                                min="0"
+                                step="any"
+                                value={rates.cbmRateKumasiTakoradi}
+                                onChange={(e) => onRatesChange({ ...rates, cbmRateKumasiTakoradi: parseFloat(e.target.value) || 0 })}
+                                className={`${rateCls} pl-8`}
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                            Tamale
+                        </label>
+                        <div className="relative">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span>
+                            <input
+                                type="number"
+                                min="0"
+                                step="any"
+                                value={rates.cbmRateTamale}
+                                onChange={(e) => onRatesChange({ ...rates, cbmRateTamale: parseFloat(e.target.value) || 0 })}
+                                className={`${rateCls} pl-8`}
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-4 mb-4">
                     <div>
                         <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
                             USD → GHS Exchange Rate
@@ -444,6 +507,76 @@ function PlatformConfigView({ onRunCleanup, cleanupLoading, cleanupResult, rates
                     )}
                 </div>
             </div>
+
+            <DangerZone />
+        </div>
+    );
+}
+
+// ── DangerZone — permanently clear all operational data ──
+function DangerZone() {
+    const [phrase, setPhrase] = useState("");
+    const [isPurging, setIsPurging] = useState(false);
+    const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
+
+    const canPurge = phrase.trim() === PURGE_CONFIRM_PHRASE && !isPurging;
+
+    const handlePurge = async () => {
+        if (!canPurge) return;
+        setIsPurging(true);
+        setResult(null);
+        try {
+            const data = await purgeOperationalData(phrase.trim());
+            setResult({
+                success: true,
+                message: `Cleared ${data?.shipmentItems ?? 0} shipments, ${data?.batches ?? 0} batches, ${data?.containerLoadings ?? 0} containers.`,
+            });
+            setPhrase("");
+        } catch (err: any) {
+            setResult({ success: false, message: err?.response?.data?.message || "Failed to clear data. Please try again." });
+        } finally {
+            setIsPurging(false);
+        }
+    };
+
+    return (
+        <div className="md:col-span-2 bg-red-50/50 p-6 rounded-2xl border-2 border-red-200 shadow-sm">
+            <h3 className="text-sm font-black text-red-700 uppercase tracking-widest mb-2 flex items-center gap-2">
+                <AlertTriangle size={16} className="text-red-600" />
+                Danger Zone — Clear All Data
+            </h3>
+            <p className="text-xs text-red-600/90 mb-4 leading-relaxed">
+                Permanently deletes <span className="font-black">every shipment, batch, and container</span> from the system.
+                User accounts, rates, and audit logs are kept. <span className="font-black">This cannot be undone.</span> Export
+                anything you need first.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                <div className="flex-1">
+                    <label className="block text-[10px] font-black text-red-500 uppercase tracking-widest mb-2">
+                        Type <span className="font-mono bg-red-100 px-1.5 py-0.5 rounded">{PURGE_CONFIRM_PHRASE}</span> to confirm
+                    </label>
+                    <input
+                        type="text"
+                        value={phrase}
+                        onChange={(e) => setPhrase(e.target.value)}
+                        placeholder={PURGE_CONFIRM_PHRASE}
+                        className="w-full px-4 py-2.5 bg-white border border-red-200 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400 transition-all"
+                    />
+                </div>
+                <button
+                    onClick={handlePurge}
+                    disabled={!canPurge}
+                    className="sm:mt-6 inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-600/20 shrink-0"
+                >
+                    <Trash2 size={14} />
+                    {isPurging ? "Clearing…" : "Clear Everything"}
+                </button>
+            </div>
+            {result && (
+                <p className={`text-xs font-semibold mt-3 ${result.success ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {result.success ? `✓ ${result.message}` : result.message}
+                </p>
+            )}
         </div>
     );
 }
@@ -453,12 +586,16 @@ function TickerTab({
     items,
     onChange,
     onSave,
+    saving,
     saved,
+    error,
 }: {
     items: TickerItem[];
     onChange: (items: TickerItem[]) => void;
     onSave: () => void;
+    saving: boolean;
     saved: boolean;
+    error: string | null;
 }) {
     const [newText, setNewText] = useState("");
     const [newType, setNewType] = useState<"news" | "rate">("news");
@@ -659,14 +796,22 @@ function TickerTab({
                 <div className="flex items-center gap-3 mt-6 pt-4 border-t border-slate-100">
                     <Button
                         onClick={onSave}
-                        className="px-6 py-2.5 text-[10px] font-black uppercase tracking-widest shadow-md shadow-[#039B81]/20"
+                        disabled={saving}
+                        className="px-6 py-2.5 text-[10px] font-black uppercase tracking-widest shadow-md shadow-[#039B81]/20 disabled:opacity-50"
                     >
-                        {saved ? <Check size={14} className="mr-2" /> : <Save size={14} className="mr-2" />}
-                        {saved ? "Saved!" : "Save to Ticker"}
+                        {saving ? (
+                            <RefreshCw size={14} className="mr-2 animate-spin" />
+                        ) : saved ? (
+                            <Check size={14} className="mr-2" />
+                        ) : (
+                            <Save size={14} className="mr-2" />
+                        )}
+                        {saving ? "Saving..." : saved ? "Saved!" : "Save to Ticker"}
                     </Button>
                     <Button
                         variant="outline"
                         onClick={handleReset}
+                        disabled={saving}
                         className="px-6 py-2.5 text-[10px] font-black uppercase tracking-widest"
                     >
                         <RefreshCw size={14} className="mr-2" />
@@ -676,6 +821,9 @@ function TickerTab({
                         <p className="text-xs font-semibold text-emerald-600 ml-2">
                             ✓ Ticker updated — visible to all visitors immediately.
                         </p>
+                    )}
+                    {error && (
+                        <p className="text-xs font-semibold text-red-600 ml-2">{error}</p>
                     )}
                 </div>
             </div>

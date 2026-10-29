@@ -2,45 +2,46 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { setAccessToken } from "@/services/api";
+import { setAccessToken, setRefreshToken } from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
 
 function GoogleCallbackContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const { fetchUser, user, isAuthenticated } = useAuth();
-    const [error, setError] = useState("");
+    const token = searchParams.get("token");
+    const rt = searchParams.get("rt");
+    // Problems the URL already shows; a failed profile load is only known later.
+    const urlError = searchParams.get("error")
+        ? "Google authentication failed. Please try again."
+        : !token
+            ? "No authentication token received."
+            : "";
+    const [loadError, setLoadError] = useState("");
+    const error = urlError || loadError;
 
     useEffect(() => {
-        const token = searchParams.get("token");
-        const errorParam = searchParams.get("error");
-
-        if (errorParam) {
-            setError("Google authentication failed. Please try again.");
+        if (urlError || !token) {
             setTimeout(() => router.push("/auth/login"), 3000);
             return;
         }
 
-        if (token) {
-            // Store token in localStorage so it persists across page reloads
-            setAccessToken(token);
-            // Then fetch the user profile
-            fetchUser().catch(() => {
-                setError("Failed to load user profile.");
-                setTimeout(() => router.push("/auth/login"), 3000);
-            });
-        } else {
-            setError("No authentication token received.");
+        // Store token in localStorage so it persists across page reloads
+        setAccessToken(token);
+        // Refresh-token fallback for when the cross-site cookie is dropped.
+        if (rt) setRefreshToken(rt);
+        // Then fetch the user profile
+        fetchUser().catch(() => {
+            setLoadError("Failed to load user profile.");
             setTimeout(() => router.push("/auth/login"), 3000);
-        }
-    }, [searchParams, fetchUser, router]);
+        });
+    }, [urlError, token, rt, fetchUser, router]);
 
     // Redirect once user is loaded
     useEffect(() => {
         if (isAuthenticated && user) {
             const role = user.role?.toLowerCase();
-            if (role === "admin") router.push("/dashboard/admin");
-            else if (role === "employee") router.push("/dashboard/employee");
+            if (role === "admin" || role === "employee") router.push("/parcels");
             else router.push("/dashboard/customer");
         }
     }, [isAuthenticated, user, router]);

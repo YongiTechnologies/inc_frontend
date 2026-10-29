@@ -1,21 +1,214 @@
+import axios from 'axios';
 import api from './api';
 import {
     NewShipmentPayload,
     CheckpointPayload,
 } from '@/types/shipment';
 
+// Plain client for the public v2 tracking endpoints — no auth interceptors, so
+// a logged-out visitor's request never triggers a token refresh.
+const publicApi = axios.create({
+    baseURL: process.env.NEXT_PUBLIC_API_URL || "",
+    headers: { 'Content-Type': 'application/json' },
+});
+
+// A derived Parcel (v2) mapped onto the flat shipment shape the customer
+// dashboard and public tracking page already render. Keeps those UIs unchanged
+// while the data comes from the two-layer model.
+function synthTimeline(p: any) {
+    const t: any[] = [];
+    if (p.intake)  t.push({ status: 'in_warehouse', timestamp: p.intake.date,  location: p.intake.warehouse,   note: 'Received at the warehouse' });
+    const legs: any[] = p.loading?.legs || [];
+    if (legs.length > 1) {
+        // A shipment split across containers: one loaded/arrived entry per leg,
+        // each with its own state, so the customer sees every container.
+        for (const l of legs) {
+            t.push({ status: 'shipped', timestamp: l.loadingDate, location: l.containerNo, note: `Loaded into container ${l.containerNo || ''}`.trim() });
+            if (l.arrived) t.push({ status: 'arrived', timestamp: null, location: l.containerNo, note: `Container ${l.containerNo || ''} arrived at the port`.trim() });
+        }
+    } else {
+        if (p.loading) t.push({ status: 'shipped', timestamp: p.loading.loadingDate, location: p.loading.containerNo, note: 'Loaded into container' });
+        if (p.arrival) t.push({ status: 'arrived', timestamp: p.arrival.date,  location: p.arrival.containerNo, note: 'Arrived at the port' });
+    }
+    return t;
+}
+function parcelToShipment(p: any) {
+    const legs: any[] = p.loading?.legs || [];
+    const container = p.loading?.containerNo ?? p.arrival?.containerNo ?? null;
+    return {
+        _id:               `${p.waybill}|${p.currentStage || ''}`,
+        waybillNo:         p.waybill,
+        status:            p.status,
+        currentStage:      p.currentStage,
+        customerName:      p.customerName ?? null,
+        destinationCity:   p.loading?.location ?? null,
+        productDescription: p.productDescription ?? null,
+        quantity:          p.qty ?? null,
+        qtyByUnit:         p.qtyByUnit ?? null,
+        cbm:               p.cbm ?? p.loading?.cbm ?? null,
+        containerRef:      container,
+        containerNo:       container,
+        // Every container this shipment is split across, each with its own
+        // arrival state (empty / single-element for an unsplit shipment).
+        containers:        legs.map((l) => ({ containerNo: l.containerNo, loadingDate: l.loadingDate, eta: l.eta, qty: l.qty, arrived: !!l.arrived })),
+        partiallyArrived:  !!p.partiallyArrived,
+        intakeDate:        p.intake?.date ?? p.receivedDate ?? null,
+        receivingDate:     p.loading?.loadingDate ?? null,
+        loadingDate:       p.loading?.loadingDate ?? null,
+        estimatedDelivery: p.loading?.eta ?? null,
+        arrivalDate:       p.arrival?.date ?? null,
+        timeline:          synthTimeline(p),
+        // Nested shapes the public tracking table reads (dates.* / cargo.*).
+        dates: {
+            intakeDate: p.intake?.date ?? p.receivedDate ?? null,
+            shippedAt:  p.loading?.loadingDate ?? null,
+            arrivedAt:  p.arrival?.date ?? null,
+        },
+        cargo: {
+            cbm:         p.cbm ?? p.loading?.cbm ?? null,
+            description: p.productDescription ?? null,
+        },
+    };
+}
+
+// A single tracking number for one customer can cover several distinct goods —
+// received on different days and/or loaded into different containers. Rather
+// than sum them into one row, expand a parcel into one display row per physical
+// line: one per goods-received receipt and one per container load. A normal
+// single good (≤1 receipt and ≤1 load) stays a single combined row that still
+// shows received → loaded → arrived together.
+function parcelToRows(p: any): any[] {
+    const intakeLines: any[] = (p.intake && p.intake.lines) || [];
+    const legs: any[] = (p.loading && p.loading.legs) || [];
+    if (intakeLines.length <= 1 && legs.length <= 1) return [parcelToShipment(p)];
+
+    const base = parcelToShipment(p);
+    const rows: any[] = [];
+
+    // Each row keeps the parcel's authoritative status (which already reflects
+    // any staff/manual override) — only the quantity, dates and container are
+    // split per physical line, so a staff-set status is never lost.
+    intakeLines.forEach((l, i) => {
+        rows.push({
+            ...base,
+            _id: `${p.waybill}|rcv|${i}`,
+            quantity: l.qty ?? null,
+            qtyByUnit: null,
+            intakeDate: l.date ?? p.receivedDate ?? null,
+            receivingDate: null,
+            loadingDate: null,
+            arrivalDate: null,
+            containerRef: null,
+            containerNo: null,
+            estimatedDelivery: null,
+            cbm: null,
+            containers: [],
+            partiallyArrived: false,
+            timeline: [{ status: 'in_warehouse', timestamp: l.date ?? null, location: p.intake?.warehouse ?? null, note: 'Received at the warehouse' }],
+            dates: { intakeDate: l.date ?? null, shippedAt: null, arrivedAt: null },
+            cargo: { cbm: null, description: p.productDescription ?? null },
+        });
+    });
+
+    legs.forEach((l, i) => {
+        const arrived = !!l.arrived;
+        rows.push({
+            ...base,
+            _id: `${p.waybill}|leg|${i}`,
+            quantity: l.qty ?? null,
+            qtyByUnit: null,
+            intakeDate: null,
+            receivingDate: l.loadingDate ?? null,
+            loadingDate: l.loadingDate ?? null,
+            arrivalDate: arrived ? (p.arrival?.date ?? null) : null,
+            containerRef: l.containerNo ?? null,
+            containerNo: l.containerNo ?? null,
+            estimatedDelivery: l.eta ?? null,
+            cbm: l.cbm ?? null,
+            containers: [{ containerNo: l.containerNo, loadingDate: l.loadingDate, eta: l.eta, qty: l.qty, arrived }],
+            partiallyArrived: false,
+            timeline: [
+                { status: 'shipped', timestamp: l.loadingDate ?? null, location: l.containerNo, note: 'Loaded into container' },
+                ...(arrived ? [{ status: 'arrived', timestamp: p.arrival?.date ?? null, location: l.containerNo, note: 'Arrived at the port' }] : []),
+            ],
+            dates: { intakeDate: null, shippedAt: l.loadingDate ?? null, arrivedAt: arrived ? (p.arrival?.date ?? null) : null },
+            cargo: { cbm: l.cbm ?? null, description: p.productDescription ?? null },
+        });
+    });
+
+    return rows;
+}
+
 // ═══════════════════════════════════════════════════
 // PUBLIC / CUSTOMER endpoints
 // ═══════════════════════════════════════════════════
 
 /**
- * Public tracking page — no account needed
- * GET /api/tracking/{trackingNumber}
- * Returns { shipment, events }
+ * One customer's entry on a shared tracking number, with identifying details
+ * partly masked. Shown so a customer can pick themselves out without learning
+ * anyone else's name or number.
  */
-export const getPublicTracking = async (trackingNumber: string) => {
-    const { data: envelope } = await api.get(`/api/tracking/${trackingNumber}`);
-    return envelope.data;
+export interface TrackingChoice {
+    customerName: string | null;
+    customerPhone: string | null;
+    shippingMark: string | null;
+    destinationCity: string | null;
+    status: string;
+}
+
+/**
+ * Public tracking page — no account needed
+ * GET /api/tracking/{trackingNumber}?phone=&mark=
+ *
+ * A tracking number can be shared by several customers on a consolidated
+ * shipment. Pass `phone` or `mark` to narrow it to one of them; without either,
+ * a shared number comes back with `ambiguous: true` and masked `choices`
+ * instead of somebody else's shipment.
+ */
+export const getPublicTracking = async (
+    trackingNumber: string,
+    identifier?: { phone?: string; mark?: string },
+) => {
+    const params: Record<string, string> = {};
+    if (identifier?.phone) params.phone = identifier.phone;
+    if (identifier?.mark) params.mark = identifier.mark;
+
+    const { data: envelope } = await publicApi.get(
+        `/api/v2/track/waybill/${encodeURIComponent(trackingNumber)}`,
+        { params },
+    );
+    const d = envelope.data;
+    if (d.ambiguous) {
+        return {
+            ambiguous: true,
+            total: d.total,
+            choices: (d.choices || []).map((c: any): TrackingChoice => ({
+                customerName: c.name ?? null,
+                customerPhone: c.phone ?? null,
+                shippingMark: c.mark ?? null,
+                destinationCity: null,
+                status: '',
+            })),
+            items: [] as any[],
+        };
+    }
+    return {
+        ambiguous: false,
+        total: d.total,
+        items: (d.parcels || []).flatMap(parcelToRows),
+    };
+};
+
+/**
+ * Public: Look up all shipments for a shipping mark (no auth needed)
+ * GET /api/tracking/mark/{mark}
+ *
+ * The only route in for customers whose sheets carried a mark rather than a
+ * phone number.
+ */
+export const getPublicTrackingByMark = async (mark: string) => {
+    const { data: envelope } = await publicApi.get(`/api/v2/track/mark/${encodeURIComponent(mark)}`);
+    return { total: envelope.data.total, items: (envelope.data.parcels || []).flatMap(parcelToRows) };
 };
 
 /**
@@ -24,24 +217,23 @@ export const getPublicTracking = async (trackingNumber: string) => {
  * Returns { total, grouped: { in_warehouse, shipped, held } }
  */
 export const getPublicTrackingByPhone = async (phone: string) => {
-    const { data: envelope } = await api.get(`/api/tracking/phone/${encodeURIComponent(phone)}`);
-    return envelope.data as {
-        total: number;
-        grouped: {
-            in_warehouse: any[];
-            shipped: any[];
-            held: any[];
-        };
-    };
+    const { data: envelope } = await publicApi.get(`/api/v2/track/phone/${encodeURIComponent(phone)}`);
+    const items = (envelope.data.parcels || []).flatMap(parcelToRows);
+    const grouped: Record<string, any[]> = {};
+    for (const it of items) (grouped[it.status] = grouped[it.status] || []).push(it);
+    return { total: envelope.data.total, grouped, items };
 };
 
 /**
  * Customers: See only your own shipments (paginated)
  * GET /api/batch-shipments/mine
  */
-export const getMyShipments = async (params: Record<string, any> = {}) => {
-    const { data: envelope } = await api.get('/api/batch-shipments/mine', { params });
-    return envelope.data;
+export const getMyShipments = async (
+    _params: Record<string, any> = {},
+): Promise<{ total: number; items: any[]; grouped?: Record<string, any[]> }> => {
+    const { data: envelope } = await api.get('/api/v2/parcels/mine');
+    const items = (envelope.data.parcels || []).flatMap(parcelToRows);
+    return { total: envelope.data.total ?? items.length, items };
 };
 
 // ═══════════════════════════════════════════════════
@@ -120,8 +312,21 @@ export const logCheckpoint = async (id: string, payload: CheckpointPayload) => {
  * GET /api/dashboard/customer/stats
  */
 export const getCustomerStats = async () => {
-    const { data: envelope } = await api.get('/api/dashboard/customer/stats');
-    return envelope.data;
+    const { data: envelope } = await api.get('/api/v2/parcels/mine');
+    const parcels: any[] = envelope.data.parcels || [];
+    const inTransit = parcels.filter((p) => p.currentStage === 'loading').length;
+    const delivered = parcels.filter((p) => p.currentStage === 'arrival').length;
+    const etas = parcels
+        .map((p) => p.loading?.eta)
+        .filter(Boolean)
+        .sort();
+    return {
+        totalShipments: parcels.length,
+        totalItems: parcels.length,
+        inTransit,
+        delivered,
+        nextDelivery: etas[0] || null,
+    };
 };
 
 /**
@@ -228,9 +433,11 @@ export const uploadBatchIntake = async (file: File) => {
  * Stage 2: China Departure (Shipped)
  * POST /api/batches/shipped
  */
-export const uploadBatchShipped = async (file: File) => {
+export const uploadBatchShipped = async (file: File, autoHold = false) => {
     const formData = new FormData();
     formData.append('file', file);
+    // Opt-in: hold warehouse items not on this packing list (off by default).
+    formData.append('autoHold', String(autoHold));
     const { data: envelope } = await api.post('/api/batches/shipped', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
     });
@@ -280,7 +487,50 @@ export const uploadBatchArrived = async (file: File) => {
  * the batch did (items, statuses, auto-created container).
  * DELETE /api/batches/:batchId
  */
-export const retractBatch = async (batchId: string) => {
-    const { data: envelope } = await api.delete(`/api/batches/${batchId}`);
+export const retractBatch = async (batchId: string, force = false) => {
+    const { data: envelope } = await api.delete(`/api/batches/${batchId}`, {
+        params: force ? { force: true } : {},
+    });
     return envelope.data as { stage: string; batchCode: string; summary: string };
+};
+
+export interface BatchSummary {
+    _id: string;
+    batchCode: string;
+    label?: string;
+    notes?: string;
+    stage: 'intake' | 'shipped' | 'arrived';
+    totalItems?: number;
+    newItems?: number;
+    matchedItems?: number;
+    heldItems?: number;
+    unclaimedIntake?: number;
+    createdAt?: string;
+    uploadedBy?: { name?: string; email?: string } | null;
+    sourceFilename?: string;
+}
+
+/**
+ * Staff: rename / edit notes on an upload batch, and optionally move every
+ * shipment in it to one status (the upload-level equivalent of advancing a
+ * container). Returns the server message too, because a bulk status change
+ * reports how many items moved and how many were skipped.
+ * PATCH /api/batches/:id
+ */
+export const updateBatch = async (
+    batchId: string,
+    payload: { label?: string; notes?: string; status?: string }
+) => {
+    const { data: envelope } = await api.patch(`/api/batches/${batchId}`, payload);
+    return { batch: envelope.data as BatchSummary, message: envelope.message as string };
+};
+
+/**
+ * Staff: recent upload batches (newest first), for the upload manager.
+ * GET /api/batches?limit=&stage=
+ */
+export const getBatches = async (params: Record<string, any> = {}) => {
+    const { data: envelope } = await api.get('/api/batches', { params });
+    const payload = envelope?.data ?? envelope;
+    return payload as { batches: BatchSummary[]; pagination?: any };
 };
