@@ -69,21 +69,23 @@ export default function ContainersView({
   const [selected, setSelected] = useState<string | null>(containers[0]?.containerNo ?? null);
   // The manifest is fetched per container from the API — not filtered from the
   // board's parcels, which are capped and wouldn't include an older container's.
-  const [manifest, setManifest] = useState<Parcel[]>([]);
-  const [spanDays, setSpanDays] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
+  // Kept with the container it belongs to: until that matches the selection,
+  // the selected container is still loading.
+  const [fetched, setFetched] = useState<{ containerNo: string; list: Parcel[]; spanDays: string[] } | null>(null);
+  const current = fetched && fetched.containerNo === selected ? fetched : null;
+  const loading = selected !== null && current === null;
+  const manifest = current?.list ?? [];
+  const spanDays = current?.spanDays ?? [];
 
   const q = query.trim().toLowerCase();
   const filtered = q ? containers.filter((c) => c.containerNo.toLowerCase().includes(q)) : containers;
 
   useEffect(() => {
-    if (!selected) { setManifest([]); setSpanDays([]); return; }
+    if (!selected) return;
     let cancelled = false;
-    setLoading(true);
     getContainer(selected)
-      .then((d) => { if (!cancelled) { setManifest(d.list || []); setSpanDays(d.spansReceivingDays || []); } })
-      .catch(() => { if (!cancelled) { setManifest([]); setSpanDays([]); } })
-      .finally(() => { if (!cancelled) setLoading(false); });
+      .then((d) => { if (!cancelled) setFetched({ containerNo: selected, list: d.list || [], spanDays: d.spansReceivingDays || [] }); })
+      .catch(() => { if (!cancelled) setFetched({ containerNo: selected, list: [], spanDays: [] }); });
     return () => { cancelled = true; };
   }, [selected]);
 

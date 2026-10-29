@@ -38,23 +38,28 @@ export default function ParcelWorkspace() {
   // typed query is sent to the API to search ALL parcels, not just the loaded set.
   const debouncedQuery = useDebounce(query, 350);
   const isSearch = debouncedQuery.trim().length > 0;
-  const [serverResults, setServerResults] = useState<Parcel[] | null>(null);
-  const [searching, setSearching] = useState(false);
+  // Results are kept with the search they answer; until that matches the
+  // current one, a search is in flight (the last results stay on screen).
+  const searchKey = `${debouncedQuery.trim()}|${bucket}|${batch}`;
+  const [serverSearch, setServerSearch] = useState<{ key: string; parcels: Parcel[] } | null>(null);
+  // Clearing the box forgets them, so the next search starts from the spinner.
+  if (!isSearch && serverSearch !== null) setServerSearch(null);
+  const serverResults = serverSearch?.parcels ?? null;
+  const searching = isSearch && serverSearch?.key !== searchKey;
 
   useEffect(() => {
     const q = debouncedQuery.trim();
-    if (!q) { setServerResults(null); setSearching(false); return; }
+    if (!q) return;
     let cancelled = false;
-    setSearching(true);
+    const key = `${q}|${bucket}|${batch}`;
     listParcels({
       search: q,
       bucket: bucket !== "all" ? (bucket as ParcelBucket) : undefined,
       container: batch !== "all" ? batch : undefined,
       limit: 300,
     })
-      .then((r) => { if (!cancelled) setServerResults(r.parcels || []); })
-      .catch(() => { if (!cancelled) setServerResults([]); })
-      .finally(() => { if (!cancelled) setSearching(false); });
+      .then((r) => { if (!cancelled) setServerSearch({ key, parcels: r.parcels || [] }); })
+      .catch(() => { if (!cancelled) setServerSearch({ key, parcels: [] }); });
     return () => { cancelled = true; };
   }, [debouncedQuery, bucket, batch]);
 
