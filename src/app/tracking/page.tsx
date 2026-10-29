@@ -12,7 +12,7 @@ import {
   Phone,
   Users,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { getPublicTracking, type TrackingChoice } from "@/services/shipments";
 import {
   searchContainerLoadings,
@@ -54,6 +54,10 @@ const getStatusDisplay = (status: string) => {
   );
 };
 
+// The tracking box takes several numbers, separated by commas.
+const parseNumbers = (raw: string) =>
+  raw.split(",").map((n) => n.trim()).filter(Boolean);
+
 type TrackResult = {
   trackingNumber: string;
   shipment: any | null;
@@ -80,11 +84,11 @@ function TrackingContent() {
   // Optional second identifier: a phone number, or a shipping mark for the
   // customers whose records carry no phone at all.
   const [identifierInput, setIdentifierInput] = useState(initialId);
-  const [isSearching, setIsSearching] = useState(false);
+  // Arriving with ?q= starts a search straight away (see the effect below).
+  const [isSearching, setIsSearching] = useState(() => parseNumbers(initialQuery).length > 0);
   const [hasSearched, setHasSearched] = useState(false);
   const [results, setResults] = useState<TrackResult[]>([]);
   const [noMatchFor, setNoMatchFor] = useState<string[]>([]);
-  const lastAutoSearch = useRef<string>("");
 
   // A mark is anything with a letter in it ("ACC-28672", "ANGIE"); anything
   // else is treated as a phone number. Mirrors how the backend reads the
@@ -95,16 +99,11 @@ function TrackingContent() {
     return /[A-Za-z]/.test(value) ? { mark: value } : { phone: value };
   };
 
-  const runTrackSearch = async (inputValue: string, identifierValue = "") => {
-    const numbers = inputValue
-      .split(",")
-      .map((n) => n.trim())
-      .filter(Boolean);
-    if (numbers.length === 0) return;
-
+  // Looks up each number. It changes no state, so the search the URL starts
+  // (in the effect below) can use it as well as the form.
+  const lookUpTracking = async (numbers: string[], identifierValue: string) => {
     const identifier = buildIdentifier(identifierValue);
 
-    setIsSearching(true);
     const settled = await Promise.allSettled(
       numbers.map(async (num): Promise<TrackResult[]> => {
         const shipmentData = await getPublicTracking(num, identifier);
@@ -175,29 +174,52 @@ function TrackingContent() {
           ],
     );
 
-    setResults(next);
     // An identifier that matched nothing is a different failure from an unknown
     // tracking number, and deserves its own message.
-    setNoMatchFor(
-      identifier
-        ? next.filter((r) => !r.found && !r.ambiguous).map((r) => r.trackingNumber)
-        : [],
-    );
+    const noMatch = identifier
+      ? next.filter((r) => !r.found && !r.ambiguous).map((r) => r.trackingNumber)
+      : [];
+    return { results: next, noMatch };
+  };
+
+  const showResults = (found: { results: TrackResult[]; noMatch: string[] }) => {
+    setResults(found.results);
+    setNoMatchFor(found.noMatch);
     setHasSearched(true);
     setIsSearching(false);
   };
 
-  useEffect(() => {
-    // Keyed on both values, so arriving from the homepage with an identifier
-    // runs the narrowed search rather than the bare tracking-number one.
-    const key = `${initialQuery}::${initialId}`;
-    if (!initialQuery || lastAutoSearch.current === key) return;
+  const runTrackSearch = async (inputValue: string, identifierValue = "") => {
+    const numbers = parseNumbers(inputValue);
+    if (numbers.length === 0) return;
+    setIsSearching(true);
+    showResults(await lookUpTracking(numbers, identifierValue));
+  };
 
-    lastAutoSearch.current = key;
+  // The URL pair to search for automatically. Keyed on both values, so arriving
+  // from the homepage with an identifier runs the narrowed search rather than
+  // the bare tracking-number one. A new pair fills the boxes and starts a
+  // search; that is done during render, as React recommends for state that
+  // follows a prop, so the effect below only fetches.
+  const [autoSearch, setAutoSearch] = useState(
+    initialQuery ? { q: initialQuery, id: initialId } : null,
+  );
+  if (initialQuery && (initialQuery !== autoSearch?.q || initialId !== autoSearch?.id)) {
+    setAutoSearch({ q: initialQuery, id: initialId });
     setTrackingInput(initialQuery);
     setIdentifierInput(initialId);
-    void runTrackSearch(initialQuery, initialId);
-  }, [initialQuery, initialId]);
+    if (parseNumbers(initialQuery).length > 0) setIsSearching(true);
+  }
+
+  useEffect(() => {
+    const numbers = autoSearch ? parseNumbers(autoSearch.q) : [];
+    if (!autoSearch || numbers.length === 0) return;
+    let cancelled = false;
+    void lookUpTracking(numbers, autoSearch.id).then((found) => {
+      if (!cancelled) showResults(found);
+    });
+    return () => { cancelled = true; };
+  }, [autoSearch]);
 
   const handleTrack = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -390,7 +412,7 @@ function TrackingContent() {
               <p className="text-slate-500 font-medium mb-6">
                 We have not received any shipment for{" "}
                 <span className="font-bold">
-                  "{notFoundNumbers.join('", "')}"
+                  &quot;{notFoundNumbers.join('", "')}&quot;
                 </span>{" "}
                 yet. Your package may still be on its way to our warehouse.
               </p>

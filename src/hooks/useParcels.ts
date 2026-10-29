@@ -35,8 +35,7 @@ export function useParcels(): ParcelData {
     loadError: false,
   });
 
-  const load = () => {
-    setState((s) => ({ ...s, loading: true }));
+  const fetchAll = () => {
     Promise.all([getReconciliation(), listParcels({ limit: 1000 }), listContainers()])
       .then(([reconciliation, parcelPage, containers]) => {
         setState({ reconciliation, parcels: parcelPage.parcels, containers, loading: false, loadError: false });
@@ -46,6 +45,12 @@ export function useParcels(): ParcelData {
       });
   };
 
-  useEffect(load, []);
-  return { ...state, reload: load };
+  const reload = () => {
+    setState((s) => ({ ...s, loading: true }));
+    fetchAll();
+  };
+
+  // The first load needs no "loading" update: the state starts out loading.
+  useEffect(fetchAll, []);
+  return { ...state, reload };
 }

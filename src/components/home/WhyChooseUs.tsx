@@ -34,7 +34,7 @@ export default function WhyChooseUs() {
                         Why Choose Clinette Shipping?
                     </h2>
                     <p className="text-muted-foreground text-lg">
-                        With years of experience in the logistics industry, we have built a reputation for excellence and reliability. Here's what sets us apart:
+                        With years of experience in the logistics industry, we have built a reputation for excellence and reliability. Here&apos;s what sets us apart:
                     </p>
                 </div>
 

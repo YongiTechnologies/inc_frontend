@@ -93,7 +93,7 @@ export function useIdleSession({ enabled, onExpire }: Options): IdleSession {
     const expiredRef = useRef(false);
     const warningRef = useRef(false);
     const onExpireRef = useRef(onExpire);
-    onExpireRef.current = onExpire;
+    useEffect(() => { onExpireRef.current = onExpire; }, [onExpire]);
 
     const recordActivity = useCallback((force = false) => {
         const now = Date.now();
@@ -151,12 +151,15 @@ export function useIdleSession({ enabled, onExpire }: Options): IdleSession {
         return () => window.removeEventListener("storage", onStorage);
     }, [enabled]);
 
+    // Signing out (or a role the timeout does not apply to) clears the warning.
+    // Done during render rather than in the clock below, as React recommends.
+    if (!enabled && isWarning) setIsWarning(false);
+
     // ── The clock ────────────────────────────────────────────────────────────
     useEffect(() => {
         if (!enabled) {
             expiredRef.current = false;
             warningRef.current = false;
-            setIsWarning(false);
             return;
         }
 

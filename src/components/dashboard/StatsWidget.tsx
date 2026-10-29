@@ -53,7 +53,7 @@ const StatsWidget: React.FC<StatsWidgetProps> = ({
 
             {description && (
                 <div className="mt-4 pt-4 border-t border-slate-50 italic text-xs text-slate-400 font-medium leading-relaxed">
-                    "{description}"
+                    &quot;{description}&quot;
                 </div>
             )}
             
